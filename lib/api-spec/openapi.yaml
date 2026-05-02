@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Renewal Radar API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: obligations
+    description: Obligation management
+  - name: reminders
+    description: Reminder rule management
+  - name: workspaces
+    description: Workspace management
+  - name: users
+    description: User management
+  - name: delivery
+    description: Delivery history
+  - name: audit
+    description: Audit history
+  - name: dashboard
+    description: Dashboard metrics
+  - name: csv
+    description: CSV import/export
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +40,979 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Dashboard ───────────────────────────────────────────────────────────────
+  /dashboard/metrics:
+    get:
+      operationId: getDashboardMetrics
+      tags: [dashboard]
+      summary: Get dashboard summary metrics
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardMetrics"
+
+  /dashboard/upcoming:
+    get:
+      operationId: getUpcomingObligations
+      tags: [dashboard]
+      summary: Get upcoming obligations (next 30 days)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Upcoming obligations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Obligation"
+
+  # ─── Workspaces ──────────────────────────────────────────────────────────────
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      tags: [workspaces]
+      summary: List workspaces for current user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workspace"
+    post:
+      operationId: createWorkspace
+      tags: [workspaces]
+      summary: Create a new workspace
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceBody"
+      responses:
+        "201":
+          description: Created workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+
+  /workspaces/{workspaceId}:
+    get:
+      operationId: getWorkspace
+      tags: [workspaces]
+      summary: Get a workspace by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceIdParam"
+      responses:
+        "200":
+          description: Workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+    put:
+      operationId: updateWorkspace
+      tags: [workspaces]
+      summary: Update a workspace
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceBody"
+      responses:
+        "200":
+          description: Updated workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+
+  # ─── Workspace Members ────────────────────────────────────────────────────────
+  /workspaces/{workspaceId}/members:
+    get:
+      operationId: listWorkspaceMembers
+      tags: [users]
+      summary: List members of a workspace
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceIdParam"
+      responses:
+        "200":
+          description: List of workspace members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkspaceMember"
+    post:
+      operationId: inviteWorkspaceMember
+      tags: [users]
+      summary: Invite a member to the workspace
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteMemberBody"
+      responses:
+        "201":
+          description: Invited member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMember"
+
+  /workspaces/{workspaceId}/members/{memberId}:
+    delete:
+      operationId: removeWorkspaceMember
+      tags: [users]
+      summary: Remove a member from workspace
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceIdParam"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Member removed
+
+  # ─── Obligations ─────────────────────────────────────────────────────────────
+  /obligations:
+    get:
+      operationId: listObligations
+      tags: [obligations]
+      summary: List obligations with optional filters
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, expired, completed, paused]
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: ownerId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: dueBefore
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: dueAfter
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of obligations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Obligation"
+    post:
+      operationId: createObligation
+      tags: [obligations]
+      summary: Create a new obligation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateObligationBody"
+      responses:
+        "201":
+          description: Created obligation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Obligation"
+
+  /obligations/{obligationId}:
+    get:
+      operationId: getObligation
+      tags: [obligations]
+      summary: Get an obligation by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+      responses:
+        "200":
+          description: Obligation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Obligation"
+    put:
+      operationId: updateObligation
+      tags: [obligations]
+      summary: Update an obligation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateObligationBody"
+      responses:
+        "200":
+          description: Updated obligation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Obligation"
+    delete:
+      operationId: deleteObligation
+      tags: [obligations]
+      summary: Delete an obligation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+      responses:
+        "204":
+          description: Deleted
+
+  /obligations/{obligationId}/complete:
+    post:
+      operationId: completeObligation
+      tags: [obligations]
+      summary: Mark an obligation as completed
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteObligationBody"
+      responses:
+        "200":
+          description: Updated obligation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Obligation"
+
+  # ─── Reminder Rules ──────────────────────────────────────────────────────────
+  /obligations/{obligationId}/reminder-rules:
+    get:
+      operationId: listReminderRules
+      tags: [reminders]
+      summary: List reminder rules for an obligation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+      responses:
+        "200":
+          description: List of reminder rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReminderRule"
+    post:
+      operationId: createReminderRule
+      tags: [reminders]
+      summary: Create a reminder rule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReminderRuleBody"
+      responses:
+        "201":
+          description: Created reminder rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderRule"
+
+  /obligations/{obligationId}/reminder-rules/{ruleId}:
+    put:
+      operationId: updateReminderRule
+      tags: [reminders]
+      summary: Update a reminder rule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+        - $ref: "#/components/parameters/RuleIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReminderRuleBody"
+      responses:
+        "200":
+          description: Updated reminder rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderRule"
+    delete:
+      operationId: deleteReminderRule
+      tags: [reminders]
+      summary: Delete a reminder rule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ObligationIdParam"
+        - $ref: "#/components/parameters/RuleIdParam"
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Delivery History ────────────────────────────────────────────────────────
+  /delivery-history:
+    get:
+      operationId: listDeliveryHistory
+      tags: [delivery]
+      summary: List reminder delivery history
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: obligationId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [sent, failed, pending]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Delivery history records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeliveryRecord"
+
+  # ─── Audit History ───────────────────────────────────────────────────────────
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit]
+      summary: List audit log entries
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: obligationId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
+  # ─── CSV Import / Export ─────────────────────────────────────────────────────
+  /obligations/export/csv:
+    get:
+      operationId: exportObligationsCsv
+      tags: [csv]
+      summary: Export obligations as CSV
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /obligations/import/csv/preview:
+    post:
+      operationId: previewCsvImport
+      tags: [csv]
+      summary: Preview CSV import with column mapping
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CsvPreviewBody"
+      responses:
+        "200":
+          description: Preview of parsed rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsvPreviewResult"
+
+  /obligations/import/csv:
+    post:
+      operationId: importObligationsCsv
+      tags: [csv]
+      summary: Import obligations from CSV with column mapping
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CsvImportBody"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsvImportResult"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    WorkspaceIdParam:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: integer
+    ObligationIdParam:
+      name: obligationId
+      in: path
+      required: true
+      schema:
+        type: integer
+    RuleIdParam:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        type: integer
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ── Dashboard ──────────────────────────────────────────────────────────────
+    DashboardMetrics:
+      type: object
+      properties:
+        totalActive:
+          type: integer
+        overdue:
+          type: integer
+        dueSoon:
+          type: integer
+        completed:
+          type: integer
+        expired:
+          type: integer
+        paused:
+          type: integer
+        remindersSentLast30Days:
+          type: integer
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCount"
+      required:
+        - totalActive
+        - overdue
+        - dueSoon
+        - completed
+        - expired
+        - paused
+        - remindersSentLast30Days
+        - byCategory
+
+    CategoryCount:
+      type: object
+      properties:
+        category:
+          type: string
+        count:
+          type: integer
+      required: [category, count]
+
+    # ── Workspaces ─────────────────────────────────────────────────────────────
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, slug, createdAt, updatedAt]
+
+    CreateWorkspaceBody:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+      required: [name]
+
+    WorkspaceMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        workspaceId:
+          type: integer
+        clerkUserId:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin, member]
+        joinedAt:
+          type: string
+          format: date-time
+      required: [id, workspaceId, clerkUserId, email, role, joinedAt]
+
+    InviteMemberBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, member]
+          default: member
+      required: [email]
+
+    # ── Obligations ────────────────────────────────────────────────────────────
+    Obligation:
+      type: object
+      properties:
+        id:
+          type: integer
+        workspaceId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+        status:
+          type: string
+          enum: [active, expired, completed, paused]
+        dueDate:
+          type: string
+          format: date
+        renewalFrequency:
+          type: string
+          enum: [once, monthly, quarterly, annually, custom]
+          nullable: true
+        customFrequencyDays:
+          type: integer
+          nullable: true
+        ownerClerkId:
+          type: string
+          nullable: true
+        ownerName:
+          type: string
+          nullable: true
+        ownerEmail:
+          type: string
+          nullable: true
+        backupOwnerClerkId:
+          type: string
+          nullable: true
+        backupOwnerName:
+          type: string
+          nullable: true
+        backupOwnerEmail:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workspaceId
+        - title
+        - category
+        - status
+        - dueDate
+        - tags
+        - createdAt
+        - updatedAt
+
+    CreateObligationBody:
+      type: object
+      properties:
+        workspaceId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        renewalFrequency:
+          type: string
+          enum: [once, monthly, quarterly, annually, custom]
+          nullable: true
+        customFrequencyDays:
+          type: integer
+          nullable: true
+        ownerClerkId:
+          type: string
+          nullable: true
+        ownerEmail:
+          type: string
+          nullable: true
+        backupOwnerClerkId:
+          type: string
+          nullable: true
+        backupOwnerEmail:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+      required: [workspaceId, title, category, dueDate]
+
+    CompleteObligationBody:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+
+    # ── Reminder Rules ─────────────────────────────────────────────────────────
+    ReminderRule:
+      type: object
+      properties:
+        id:
+          type: integer
+        obligationId:
+          type: integer
+        daysBefore:
+          type: integer
+        channel:
+          type: string
+          enum: [email, in_app]
+        recipientType:
+          type: string
+          enum: [owner, backup_owner, all_members, custom_email]
+        customEmail:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        lastTriggeredAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - obligationId
+        - daysBefore
+        - channel
+        - recipientType
+        - isActive
+        - createdAt
+
+    CreateReminderRuleBody:
+      type: object
+      properties:
+        daysBefore:
+          type: integer
+          minimum: 0
+        channel:
+          type: string
+          enum: [email, in_app]
+        recipientType:
+          type: string
+          enum: [owner, backup_owner, all_members, custom_email]
+        customEmail:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+          default: true
+      required: [daysBefore, channel, recipientType]
+
+    # ── Delivery History ───────────────────────────────────────────────────────
+    DeliveryRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        obligationId:
+          type: integer
+        obligationTitle:
+          type: string
+          nullable: true
+        ruleId:
+          type: integer
+          nullable: true
+        channel:
+          type: string
+        recipientEmail:
+          type: string
+        status:
+          type: string
+          enum: [sent, failed, pending]
+        errorMessage:
+          type: string
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - obligationId
+        - channel
+        - recipientEmail
+        - status
+        - sentAt
+
+    # ── Audit Logs ─────────────────────────────────────────────────────────────
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        workspaceId:
+          type: integer
+          nullable: true
+        obligationId:
+          type: integer
+          nullable: true
+        obligationTitle:
+          type: string
+          nullable: true
+        actorClerkId:
+          type: string
+          nullable: true
+        actorName:
+          type: string
+          nullable: true
+        action:
+          type: string
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, action, createdAt]
+
+    # ── CSV ────────────────────────────────────────────────────────────────────
+    CsvPreviewBody:
+      type: object
+      properties:
+        csvContent:
+          type: string
+        columnMapping:
+          type: object
+          additionalProperties:
+            type: string
+        workspaceId:
+          type: integer
+      required: [csvContent, workspaceId]
+
+    CsvPreviewResult:
+      type: object
+      properties:
+        headers:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        totalRows:
+          type: integer
+        validRows:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+      required: [headers, rows, totalRows, validRows, errors]
+
+    CsvImportBody:
+      type: object
+      properties:
+        csvContent:
+          type: string
+        columnMapping:
+          type: object
+          additionalProperties:
+            type: string
+        workspaceId:
+          type: integer
+      required: [csvContent, columnMapping, workspaceId]
+
+    CsvImportResult:
+      type: object
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+      required: [imported, skipped, errors]

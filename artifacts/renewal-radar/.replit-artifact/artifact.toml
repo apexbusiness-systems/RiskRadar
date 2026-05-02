@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Renewal Radar"
+version = "1.0.0"
+id = "artifacts/renewal-radar"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23791
+
+[services.development]
+run = "pnpm --filter @workspace/renewal-radar run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/renewal-radar", "run", "build" ]
+publicDir = "artifacts/renewal-radar/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23791"
+BASE_PATH = "/"
