@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useUser } from "@clerk/react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Mail, Trash2, Settings, Building2, Crown, Shield, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
   owner:  { label: "Owner",  color: "text-amber-700",  bg: "bg-amber-50 border-amber-200",  icon: Crown },
@@ -27,24 +28,8 @@ export default function WorkspacePage() {
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
+  const { workspaceId } = useWorkspace();
   const [inviteEmail, setInviteEmail] = useState("");
-  const [seeded, setSeeded] = useState(false);
-
-  useEffect(() => {
-    if (!user || seeded) return;
-    const email = user.emailAddresses[0]?.emailAddress ?? "";
-    setSeeded(true);
-    fetch("/api/me/seed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email }),
-    })
-      .then((r) => r.json())
-      .then((data) => { if (data.workspaceId) setWorkspaceId(data.workspaceId); })
-      .catch(() => {});
-  }, [user, seeded]);
 
   const workspacesQuery = useListWorkspaces({ query: { queryKey: getListWorkspacesQueryKey() } });
   const workspace = workspacesQuery.data?.[0];

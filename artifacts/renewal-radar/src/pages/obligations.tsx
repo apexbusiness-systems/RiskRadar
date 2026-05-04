@@ -23,6 +23,7 @@ import { format, parseISO } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const CATEGORIES = ["All", "Licensing", "Insurance", "Contracts", "Software", "HR & Compliance", "Real Estate", "Other"];
 const STATUSES = [
@@ -49,15 +50,20 @@ export default function ObligationsPage() {
   const [category, setCategory] = useState("All");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { workspaceId } = useWorkspace();
 
   const params = {
+    ...(workspaceId ? { workspaceId } : {}),
     ...(search ? { search } : {}),
     ...(status !== "all" ? { status } : {}),
     ...(category !== "All" ? { category } : {}),
-  };
+  } as Parameters<typeof useListObligations>[0];
 
   const obligationsQuery = useListObligations(params, {
-    query: { queryKey: getListObligationsQueryKey(params) },
+    query: {
+      queryKey: getListObligationsQueryKey(params),
+      enabled: !!workspaceId,
+    },
   });
 
   const deleteObligation = useDeleteObligation();
@@ -84,7 +90,7 @@ export default function ObligationsPage() {
   const handleComplete = useCallback(
     (id: number) => {
       completeObligation.mutate(
-        { obligationId: id },
+        { obligationId: id, data: {} },
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: getListObligationsQueryKey() });
@@ -98,8 +104,18 @@ export default function ObligationsPage() {
   );
 
   const handleExport = useCallback(async () => {
+    if (!workspaceId) {
+      toast({ title: "Workspace not loaded yet", variant: "destructive" });
+      return;
+    }
     try {
-      const r = await fetch("/api/obligations/export/csv", { credentials: "include" });
+      const qs = new URLSearchParams({ workspaceId: String(workspaceId) });
+      if (search) qs.set("search", search);
+      if (status !== "all") qs.set("status", status);
+      if (category !== "All") qs.set("category", category);
+
+      const r = await fetch(`/api/obligations/export/csv?${qs}`, { credentials: "include" });
+      if (!r.ok) throw new Error("Export failed");
       const text = await r.text();
       const blob = new Blob([text], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -112,7 +128,9 @@ export default function ObligationsPage() {
     } catch {
       toast({ title: "Export failed", variant: "destructive" });
     }
-  }, [toast]);
+  }, [workspaceId, search, status, category, toast]);
+
+  const isFiltered = search || status !== "all" || category !== "All";
 
   return (
     <AppLayout>
@@ -122,7 +140,11 @@ export default function ObligationsPage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Obligations</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              {obligations.length} obligation{obligations.length !== 1 ? "s" : ""} total
+              {!workspaceId
+                ? "Loading..."
+                : obligationsQuery.isLoading
+                ? "Loading obligations..."
+                : `${obligations.length} obligation${obligations.length !== 1 ? "s" : ""} found`}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -131,6 +153,7 @@ export default function ObligationsPage() {
               size="sm"
               className="gap-2 text-slate-600 border-slate-200 hover:bg-slate-50 rounded-xl"
               onClick={handleExport}
+              disabled={!workspaceId}
               data-testid="button-export-csv"
             >
               <Download className="w-4 h-4" />
@@ -187,7 +210,7 @@ export default function ObligationsPage() {
 
         {/* Table card */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          {obligationsQuery.isLoading ? (
+          {!workspaceId || obligationsQuery.isLoading ? (
             <div className="p-6 space-y-3">
               {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}
             </div>
@@ -198,11 +221,11 @@ export default function ObligationsPage() {
               </div>
               <p className="font-bold text-slate-700 text-lg mb-1">No obligations found</p>
               <p className="text-slate-400 text-sm mb-6">
-                {search || status !== "all" || category !== "All"
+                {isFiltered
                   ? "Try adjusting your filters."
                   : "Add your first obligation to get started."}
               </p>
-              {!search && status === "all" && category === "All" && (
+              {!isFiltered && (
                 <div className="flex items-center justify-center gap-3">
                   <Link href="/obligations/new">
                     <Button size="sm" className="bg-slate-900 hover:bg-slate-800 rounded-xl gap-2" data-testid="button-create-first">
@@ -260,7 +283,11 @@ export default function ObligationsPage() {
                         <span className="text-sm text-slate-600 font-medium">{format(parseISO(o.dueDate), "MMM d, yyyy")}</span>
                       </td>
                       <td className="px-4 py-4 hidden lg:table-cell">
-                        <span className="text-sm text-slate-400 truncate max-w-36 block">{o.ownerEmail || "—"}</span>
+                        {o.ownerEmail ? (
+                          <span className="text-sm text-slate-600 truncate max-w-36 block">{o.ownerEmail}</span>
+                        ) : (
+                          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">No owner</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1">

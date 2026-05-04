@@ -2,28 +2,50 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startReminderScheduler } from "./lib/reminderProcessor";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
+// ── Startup environment validation ──────────────────────────────────────────
+const REQUIRED_ENV = ["PORT", "DATABASE_URL", "CLERK_SECRET_KEY"] as const;
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    logger.error(`Missing required environment variable: ${key}`);
+    process.exit(1);
+  }
 }
 
+const rawPort = process.env["PORT"]!;
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
+  logger.error(`Invalid PORT value: "${rawPort}"`);
+  process.exit(1);
 }
 
-app.listen(port, (err) => {
+// ── Server startup ───────────────────────────────────────────────────────────
+const server = app.listen(port, (err?: Error) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
-
   logger.info({ port }, "Server listening");
 
   // Start the hourly reminder scheduler
-  startReminderScheduler();
+  const stopScheduler = startReminderScheduler();
+
+  // Graceful shutdown on SIGTERM / SIGINT
+  const shutdown = (signal: string) => {
+    logger.info({ signal }, "Received shutdown signal — draining");
+    stopScheduler();
+    server.close(() => {
+      logger.info("HTTP server closed");
+      process.exit(0);
+    });
+
+    // Force exit after 10 s if still draining
+    setTimeout(() => {
+      logger.warn("Forced exit after drain timeout");
+      process.exit(1);
+    }, 10_000).unref();
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 });

@@ -5,17 +5,15 @@ import {
   workspaceMembersTable,
   auditLogsTable,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAuth";
 import type { Request, Response } from "express";
 
 const router = Router();
 
-// Ensure current user is a member of a workspace
-async function ensureMember(
-  workspaceId: number,
-  clerkUserId: string,
-): Promise<boolean> {
+// ── Membership helpers ───────────────────────────────────────────────────────
+
+async function getMember(workspaceId: number, clerkUserId: string) {
   const [member] = await db
     .select()
     .from(workspaceMembersTable)
@@ -26,19 +24,41 @@ async function ensureMember(
       ),
     )
     .limit(1);
-  return !!member;
+  return member ?? null;
 }
 
-// GET /api/workspaces
+async function ensureMember(
+  workspaceId: number,
+  clerkUserId: string,
+): Promise<boolean> {
+  return !!(await getMember(workspaceId, clerkUserId));
+}
+
+async function ensureOwnerOrAdmin(
+  workspaceId: number,
+  clerkUserId: string,
+): Promise<boolean> {
+  const member = await getMember(workspaceId, clerkUserId);
+  return !!member && (member.role === "owner" || member.role === "admin");
+}
+
+// Helper to safely extract a string route param from Express (Express 5 types can be string | string[])
+function param(req: Request, key: string): string {
+  const v = req.params[key];
+  return Array.isArray(v) ? v[0] : v;
+}
+
+// ── GET /api/workspaces ──────────────────────────────────────────────────────
+
 router.get("/", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
   try {
-    const members = await db
+    const memberships = await db
       .select({ workspaceId: workspaceMembersTable.workspaceId })
       .from(workspaceMembersTable)
       .where(eq(workspaceMembersTable.clerkUserId, userId));
 
-    const workspaceIds = members.map((m) => m.workspaceId);
+    const workspaceIds = memberships.map((m) => m.workspaceId);
     if (workspaceIds.length === 0) {
       res.json([]);
       return;
@@ -47,31 +67,21 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
     const workspaces = await db
       .select()
       .from(workspacesTable)
-      .where(
-        workspaceIds.length === 1
-          ? eq(workspacesTable.id, workspaceIds[0])
-          : workspaceIds.reduce(
-              (acc: ReturnType<typeof eq>, id, i) =>
-                i === 0 ? eq(workspacesTable.id, id) : acc,
-              eq(workspacesTable.id, workspaceIds[0]),
-            ),
-      );
+      .where(inArray(workspacesTable.id, workspaceIds));
 
-    // Simpler: fetch all and filter
-    const allWorkspaces = await db.select().from(workspacesTable);
-    const result = allWorkspaces.filter((w) => workspaceIds.includes(w.id));
-    res.json(result);
+    res.json(workspaces);
   } catch (err) {
     req.log.error({ err }, "listWorkspaces error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// POST /api/workspaces
+// ── POST /api/workspaces ─────────────────────────────────────────────────────
+
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
   try {
-    const { name, slug } = req.body;
+    const { name, slug, email, displayName } = req.body;
     if (!name) {
       res.status(400).json({ error: "name is required" });
       return;
@@ -82,19 +92,19 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
       name
         .toLowerCase()
         .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
+        .replace(/[^a-z0-9-]/g, "")
+        .slice(0, 80);
 
     const [workspace] = await db
       .insert(workspacesTable)
-      .values({ name, slug: finalSlug })
+      .values({ name: String(name).slice(0, 200), slug: finalSlug })
       .returning();
 
-    // Add creator as owner
     await db.insert(workspaceMembersTable).values({
       workspaceId: workspace.id,
       clerkUserId: userId,
-      email: req.body.email || "",
-      name: req.body.name || "",
+      email: email || "",
+      name: displayName || "",
       role: "owner",
     });
 
@@ -105,13 +115,14 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/workspaces/:workspaceId
+// ── GET /api/workspaces/:workspaceId ─────────────────────────────────────────
+
 router.get("/:workspaceId", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
-  const workspaceId = parseInt(req.params.workspaceId);
+  const workspaceId = parseInt(param(req, "workspaceId"));
   try {
-    const isMember = await ensureMember(workspaceId, userId);
-    if (!isMember) {
+    const ok = await ensureMember(workspaceId, userId);
+    if (!ok) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -133,14 +144,16 @@ router.get("/:workspaceId", requireAuth, async (req: Request, res: Response) => 
   }
 });
 
-// PUT /api/workspaces/:workspaceId
+// ── PUT /api/workspaces/:workspaceId ─────────────────────────────────────────
+// Only owners and admins can rename a workspace
+
 router.put("/:workspaceId", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
-  const workspaceId = parseInt(req.params.workspaceId);
+  const workspaceId = parseInt(param(req, "workspaceId"));
   try {
-    const isMember = await ensureMember(workspaceId, userId);
-    if (!isMember) {
-      res.status(403).json({ error: "Forbidden" });
+    const ok = await ensureOwnerOrAdmin(workspaceId, userId);
+    if (!ok) {
+      res.status(403).json({ error: "Only owners and admins can update workspace settings" });
       return;
     }
 
@@ -148,12 +161,19 @@ router.put("/:workspaceId", requireAuth, async (req: Request, res: Response) => 
     const [workspace] = await db
       .update(workspacesTable)
       .set({
-        name,
-        slug,
+        name: name ? String(name).slice(0, 200) : undefined,
+        slug: slug ? String(slug).slice(0, 80) : undefined,
         updatedAt: new Date(),
       })
       .where(eq(workspacesTable.id, workspaceId))
       .returning();
+
+    await db.insert(auditLogsTable).values({
+      workspaceId,
+      actorClerkId: userId,
+      action: "workspace.updated",
+      details: { name, slug },
+    });
 
     res.json(workspace);
   } catch (err) {
@@ -162,13 +182,14 @@ router.put("/:workspaceId", requireAuth, async (req: Request, res: Response) => 
   }
 });
 
-// GET /api/workspaces/:workspaceId/members
+// ── GET /api/workspaces/:workspaceId/members ──────────────────────────────────
+
 router.get("/:workspaceId/members", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
-  const workspaceId = parseInt(req.params.workspaceId);
+  const workspaceId = parseInt(param(req, "workspaceId"));
   try {
-    const isMember = await ensureMember(workspaceId, userId);
-    if (!isMember) {
+    const ok = await ensureMember(workspaceId, userId);
+    if (!ok) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -185,20 +206,46 @@ router.get("/:workspaceId/members", requireAuth, async (req: Request, res: Respo
   }
 });
 
-// POST /api/workspaces/:workspaceId/members
+// ── POST /api/workspaces/:workspaceId/members ─────────────────────────────────
+// Adds a pending member row (real Clerk invitation requires backend SDK + webhooks)
+
 router.post("/:workspaceId/members", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
-  const workspaceId = parseInt(req.params.workspaceId);
+  const workspaceId = parseInt(param(req, "workspaceId"));
   try {
-    const isMember = await ensureMember(workspaceId, userId);
-    if (!isMember) {
-      res.status(403).json({ error: "Forbidden" });
+    const ok = await ensureOwnerOrAdmin(workspaceId, userId);
+    if (!ok) {
+      res.status(403).json({ error: "Only owners and admins can invite members" });
       return;
     }
 
-    const { email, role = "member" } = req.body;
+    const { email, role = "member", name } = req.body;
     if (!email) {
       res.status(400).json({ error: "email is required" });
+      return;
+    }
+
+    // Validate role
+    const validRoles = ["owner", "admin", "member"];
+    if (!validRoles.includes(role)) {
+      res.status(400).json({ error: `role must be one of: ${validRoles.join(", ")}` });
+      return;
+    }
+
+    // Avoid duplicate email within workspace
+    const [existing] = await db
+      .select({ id: workspaceMembersTable.id })
+      .from(workspaceMembersTable)
+      .where(
+        and(
+          eq(workspaceMembersTable.workspaceId, workspaceId),
+          eq(workspaceMembersTable.email, email),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      res.status(409).json({ error: "This email is already a member of this workspace" });
       return;
     }
 
@@ -206,52 +253,88 @@ router.post("/:workspaceId/members", requireAuth, async (req: Request, res: Resp
       .insert(workspaceMembersTable)
       .values({
         workspaceId,
-        clerkUserId: `invited:${email}`,
-        email,
+        // Placeholder clerkUserId until the invited user signs in via Clerk
+        clerkUserId: `pending:${email}`,
+        email: String(email).toLowerCase().trim(),
+        name: name ? String(name).slice(0, 200) : null,
         role,
       })
       .returning();
 
-    res.status(201).json(member);
+    await db.insert(auditLogsTable).values({
+      workspaceId,
+      actorClerkId: userId,
+      action: "member.invited",
+      details: { email, role },
+    });
+
+    res.status(201).json({ ...member, status: "pending_signup" });
   } catch (err) {
     req.log.error({ err }, "inviteMember error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// DELETE /api/workspaces/:workspaceId/members/:memberId
-router.delete("/:workspaceId/members/:memberId", requireAuth, async (req: Request, res: Response) => {
-  const userId = (req as AuthenticatedRequest).userId;
-  const workspaceId = parseInt(req.params.workspaceId);
-  const memberId = parseInt(req.params.memberId);
-  try {
-    const isMember = await ensureMember(workspaceId, userId);
-    if (!isMember) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
+// ── DELETE /api/workspaces/:workspaceId/members/:memberId ─────────────────────
+
+router.delete(
+  "/:workspaceId/members/:memberId",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const userId = (req as AuthenticatedRequest).userId;
+    const workspaceId = parseInt(param(req, "workspaceId"));
+    const memberId = parseInt(param(req, "memberId"));
+    try {
+      const ok = await ensureOwnerOrAdmin(workspaceId, userId);
+      if (!ok) {
+        res.status(403).json({ error: "Only owners and admins can remove members" });
+        return;
+      }
+
+      // Cannot remove yourself (owner)
+      const [targetMember] = await db
+        .select()
+        .from(workspaceMembersTable)
+        .where(
+          and(
+            eq(workspaceMembersTable.id, memberId),
+            eq(workspaceMembersTable.workspaceId, workspaceId),
+          ),
+        )
+        .limit(1);
+
+      if (!targetMember) {
+        res.status(404).json({ error: "Member not found" });
+        return;
+      }
+
+      if (targetMember.clerkUserId === userId) {
+        res.status(400).json({ error: "You cannot remove yourself from the workspace" });
+        return;
+      }
+
+      await db
+        .delete(workspaceMembersTable)
+        .where(
+          and(
+            eq(workspaceMembersTable.id, memberId),
+            eq(workspaceMembersTable.workspaceId, workspaceId),
+          ),
+        );
+
+      await db.insert(auditLogsTable).values({
+        workspaceId,
+        actorClerkId: userId,
+        action: "member.removed",
+        details: { memberId, email: targetMember.email },
+      });
+
+      res.status(204).send();
+    } catch (err) {
+      req.log.error({ err }, "removeMember error");
+      res.status(500).json({ error: "Internal server error" });
     }
-
-    await db
-      .delete(workspaceMembersTable)
-      .where(
-        and(
-          eq(workspaceMembersTable.id, memberId),
-          eq(workspaceMembersTable.workspaceId, workspaceId),
-        ),
-      );
-
-    await db.insert(auditLogsTable).values({
-      workspaceId,
-      actorClerkId: userId,
-      action: "member.removed",
-      details: { memberId },
-    });
-
-    res.status(204).send();
-  } catch (err) {
-    req.log.error({ err }, "removeMember error");
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  },
+);
 
 export default router;

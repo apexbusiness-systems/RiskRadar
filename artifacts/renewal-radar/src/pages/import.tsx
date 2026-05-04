@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { useUser } from "@clerk/react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,9 +12,10 @@ import {
 import { usePreviewCsvImport, useImportObligationsCsv, getListObligationsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle, FileSpreadsheet } from "lucide-react";
+import { Upload, ArrowRight, ArrowLeft, CheckCircle2, AlertTriangle, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const OBLIGATION_FIELDS = [
   { value: "title", label: "Title", required: true },
@@ -36,6 +36,30 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
+function parseCSVHeaders(text: string): string[] {
+  const firstLine = text.split("\n")[0];
+  if (!firstLine) return [];
+
+  const headers: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < firstLine.length; i++) {
+    const c = firstLine[i];
+    if (c === '"') {
+      if (inQuotes && firstLine[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (c === "," && !inQuotes) {
+      headers.push(current.trim());
+      current = "";
+    } else {
+      current += c;
+    }
+  }
+  headers.push(current.trim());
+  return headers;
+}
+
 export default function ImportPage() {
   const [step, setStep] = useState<Step>("upload");
   const [csvContent, setCsvContent] = useState("");
@@ -44,34 +68,16 @@ export default function ImportPage() {
   const [previewRows, setPreviewRows] = useState<Record<string, string>[]>([]);
   const [previewErrors, setPreviewErrors] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
-  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
 
-  const { user } = useUser();
+  const { workspaceId } = useWorkspace();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const previewMutation = usePreviewCsvImport();
   const importMutation = useImportObligationsCsv();
 
-  const ensureWorkspace = useCallback(async (): Promise<number> => {
-    if (workspaceId) return workspaceId;
-    const email = user?.emailAddresses[0]?.emailAddress ?? "";
-    const r = await fetch("/api/me/seed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email }),
-    });
-    const data = await r.json();
-    const id = data.workspaceId as number;
-    setWorkspaceId(id);
-    return id;
-  }, [workspaceId, user]);
-
-  const parseCsv = (text: string) => {
-    const firstLine = text.split("\n")[0];
-    if (!firstLine) return;
-    const cols = firstLine.split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+  const parseCsvLocally = (text: string) => {
+    const cols = parseCSVHeaders(text);
     setHeaders(cols);
     const autoMap: Record<string, string> = {};
     for (const col of cols) {
@@ -90,15 +96,18 @@ export default function ImportPage() {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       setCsvContent(text);
-      parseCsv(text);
+      parseCsvLocally(text);
     };
     reader.readAsText(file);
   };
 
-  const handlePreview = async () => {
-    const wsId = await ensureWorkspace();
+  const handlePreview = useCallback(() => {
+    if (!workspaceId) {
+      toast({ title: "Workspace not loaded", variant: "destructive" });
+      return;
+    }
     previewMutation.mutate(
-      { data: { csvContent, columnMapping, workspaceId: wsId } },
+      { data: { csvContent, columnMapping, workspaceId } },
       {
         onSuccess: (result) => {
           setPreviewRows(result.rows as Record<string, string>[]);
@@ -108,12 +117,15 @@ export default function ImportPage() {
         onError: () => toast({ title: "Preview failed", variant: "destructive" }),
       },
     );
-  };
+  }, [workspaceId, csvContent, columnMapping, previewMutation, toast]);
 
-  const handleImport = async () => {
-    const wsId = await ensureWorkspace();
+  const handleImport = useCallback(() => {
+    if (!workspaceId) {
+      toast({ title: "Workspace not loaded", variant: "destructive" });
+      return;
+    }
     importMutation.mutate(
-      { data: { csvContent, columnMapping, workspaceId: wsId } },
+      { data: { csvContent, columnMapping, workspaceId } },
       {
         onSuccess: (result) => {
           queryClient.invalidateQueries({ queryKey: getListObligationsQueryKey() });
@@ -123,7 +135,7 @@ export default function ImportPage() {
         onError: () => toast({ title: "Import failed", variant: "destructive" }),
       },
     );
-  };
+  }, [workspaceId, csvContent, columnMapping, importMutation, queryClient, toast]);
 
   const currentStepIdx = STEPS.findIndex((s) => s.id === step);
 
@@ -181,8 +193,9 @@ export default function ImportPage() {
                   </div>
                   <p className="text-sm font-semibold text-slate-700 mb-1">Click to upload a CSV file</p>
                   <p className="text-xs text-slate-400">or paste your CSV content in the field below</p>
+                  <p className="text-xs text-slate-400 mt-2">Required columns: <span className="font-medium text-slate-600">title, category, dueDate</span> (YYYY-MM-DD format)</p>
                 </div>
-                <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" id="csv-file" data-testid="input-csv-file" />
+                <input type="file" accept=".csv,text/csv" onChange={handleFileUpload} className="hidden" id="csv-file" data-testid="input-csv-file" />
               </label>
 
               <div className="relative">
@@ -195,7 +208,7 @@ export default function ImportPage() {
                   value={csvContent}
                   onChange={(e) => {
                     setCsvContent(e.target.value);
-                    parseCsv(e.target.value);
+                    parseCsvLocally(e.target.value);
                   }}
                   className="font-mono text-xs rounded-xl border-slate-200 bg-slate-50 focus:bg-white resize-none pt-4"
                   data-testid="textarea-csv"
@@ -228,7 +241,7 @@ export default function ImportPage() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <h2 className="text-sm font-semibold text-slate-700">Map Columns</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Match your CSV columns to obligation fields</p>
+              <p className="text-xs text-slate-400 mt-0.5">Match your CSV columns to obligation fields. Fields marked <span className="text-red-500">*</span> are required.</p>
             </div>
             <div className="p-6">
               <div className="space-y-3 mb-6">
@@ -259,8 +272,17 @@ export default function ImportPage() {
                 <Button variant="outline" onClick={() => setStep("upload")} className="gap-2 rounded-xl border-slate-200 h-11" data-testid="button-back-upload">
                   <ArrowLeft className="w-4 h-4" /> Back
                 </Button>
-                <Button onClick={handlePreview} disabled={previewMutation.isPending} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded-xl gap-2 h-11" data-testid="button-preview">
-                  {previewMutation.isPending ? "Previewing..." : <><span>Preview Import</span> <ArrowRight className="w-4 h-4" /></>}
+                <Button
+                  onClick={handlePreview}
+                  disabled={previewMutation.isPending || !workspaceId}
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded-xl gap-2 h-11"
+                  data-testid="button-preview"
+                >
+                  {previewMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Previewing...</>
+                  ) : (
+                    <><span>Preview Import</span> <ArrowRight className="w-4 h-4" /></>
+                  )}
                 </Button>
               </div>
             </div>
@@ -280,7 +302,8 @@ export default function ImportPage() {
                   <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-amber-800 mb-1">{previewErrors.length} warning{previewErrors.length !== 1 ? "s" : ""} found</p>
-                    {previewErrors.slice(0, 3).map((e, i) => <p key={i} className="text-xs text-amber-700">{e}</p>)}
+                    {previewErrors.slice(0, 5).map((e, i) => <p key={i} className="text-xs text-amber-700">{e}</p>)}
+                    {previewErrors.length > 5 && <p className="text-xs text-amber-600 mt-1">+{previewErrors.length - 5} more</p>}
                   </div>
                 </div>
               )}
@@ -310,8 +333,17 @@ export default function ImportPage() {
                 <Button variant="outline" onClick={() => setStep("map")} className="gap-2 rounded-xl border-slate-200 h-11" data-testid="button-back-map">
                   <ArrowLeft className="w-4 h-4" /> Back
                 </Button>
-                <Button onClick={handleImport} disabled={importMutation.isPending} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded-xl gap-2 h-11" data-testid="button-confirm-import">
-                  {importMutation.isPending ? "Importing..." : <><span>Confirm Import</span> <ArrowRight className="w-4 h-4" /></>}
+                <Button
+                  onClick={handleImport}
+                  disabled={importMutation.isPending || !workspaceId}
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded-xl gap-2 h-11"
+                  data-testid="button-confirm-import"
+                >
+                  {importMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</>
+                  ) : (
+                    <><span>Confirm Import</span> <ArrowRight className="w-4 h-4" /></>
+                  )}
                 </Button>
               </div>
             </div>
@@ -342,9 +374,12 @@ export default function ImportPage() {
 
               {importResult.errors.length > 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left">
-                  {importResult.errors.slice(0, 3).map((e, i) => (
+                  {importResult.errors.slice(0, 5).map((e, i) => (
                     <p key={i} className="text-xs text-amber-700">{e}</p>
                   ))}
+                  {importResult.errors.length > 5 && (
+                    <p className="text-xs text-amber-600 mt-1">+{importResult.errors.length - 5} more issues</p>
+                  )}
                 </div>
               )}
 

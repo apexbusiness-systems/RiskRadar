@@ -7,10 +7,15 @@ import type { Request, Response } from "express";
 
 const router = Router({ mergeParams: true });
 
+function param(req: Request, key: string): string {
+  const v = req.params[key];
+  return Array.isArray(v) ? v[0] : v;
+}
+
 // GET /api/obligations/:obligationId/reminder-rules
 router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const obligationId = parseInt(req.params.obligationId);
+    const obligationId = parseInt(param(req, "obligationId"));
     const rules = await db
       .select()
       .from(reminderRulesTable)
@@ -26,7 +31,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
   try {
-    const obligationId = parseInt(req.params.obligationId);
+    const obligationId = parseInt(param(req, "obligationId"));
     const { daysBefore, channel, recipientType, customEmail, isActive } = req.body;
 
     if (daysBefore === undefined || !channel || !recipientType) {
@@ -73,8 +78,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 // PUT /api/obligations/:obligationId/reminder-rules/:ruleId
 router.put("/:ruleId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const ruleId = parseInt(req.params.ruleId);
-    const obligationId = parseInt(req.params.obligationId);
+    const ruleId = parseInt(param(req, "ruleId"));
+    const obligationId = parseInt(param(req, "obligationId"));
     const { daysBefore, channel, recipientType, customEmail, isActive } = req.body;
 
     const [rule] = await db
@@ -109,8 +114,8 @@ router.put("/:ruleId", requireAuth, async (req: Request, res: Response) => {
 // DELETE /api/obligations/:obligationId/reminder-rules/:ruleId
 router.delete("/:ruleId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const ruleId = parseInt(req.params.ruleId);
-    const obligationId = parseInt(req.params.obligationId);
+    const ruleId = parseInt(param(req, "ruleId"));
+    const obligationId = parseInt(param(req, "obligationId"));
 
     await db
       .delete(reminderRulesTable)

@@ -308,7 +308,7 @@ export default function ObligationDetailPage() {
 
   const handleComplete = () => {
     completeObligation.mutate(
-      { obligationId },
+      { obligationId, data: {} },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetObligationQueryKey(obligationId) });

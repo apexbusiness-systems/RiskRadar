@@ -6,20 +6,18 @@ import {
   auditLogsTable,
   workspaceMembersTable,
 } from "@workspace/db";
-import { eq, and, lte, gte, sql } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { logger } from "./logger";
 
-// Send a reminder email (stub — wire SMTP_* env vars to send real emails)
 async function sendEmail(to: string, subject: string, body: string): Promise<boolean> {
   const smtpHost = process.env.SMTP_HOST;
 
   if (!smtpHost) {
-    logger.info({ to, subject }, "SMTP not configured — skipping email send");
-    return true; // pretend success in dev
+    logger.info({ to, subject }, "SMTP not configured — email not sent");
+    return false; // accurately report as not-sent
   }
 
   try {
-    // Dynamic import to avoid failing at startup when nodemailer isn't installed
     const nodemailer = await import("nodemailer");
     const transporter = nodemailer.default.createTransport({
       host: smtpHost,
@@ -50,7 +48,7 @@ export async function processReminders(): Promise<void> {
   const todayStr = today.toISOString().split("T")[0];
 
   try {
-    // 1. Mark overdue active obligations as expired
+    // ── 1. Mark overdue active obligations as expired ────────────────────────
     const activeObligations = await db
       .select()
       .from(obligationsTable)
@@ -68,6 +66,7 @@ export async function processReminders(): Promise<void> {
           obligationId: obligation.id,
           obligationTitle: obligation.title,
           actorClerkId: null,
+          actorName: "System",
           action: "obligation.expired",
           details: { dueDate: obligation.dueDate },
         });
@@ -79,17 +78,14 @@ export async function processReminders(): Promise<void> {
       }
     }
 
-    // 2. Process reminder rules
+    // ── 2. Process reminder rules (with deduplication) ───────────────────────
     const rules = await db
       .select({
         rule: reminderRulesTable,
         obligation: obligationsTable,
       })
       .from(reminderRulesTable)
-      .innerJoin(
-        obligationsTable,
-        eq(reminderRulesTable.obligationId, obligationsTable.id),
-      )
+      .innerJoin(obligationsTable, eq(reminderRulesTable.obligationId, obligationsTable.id))
       .where(
         and(
           eq(reminderRulesTable.isActive, true),
@@ -98,10 +94,22 @@ export async function processReminders(): Promise<void> {
       );
 
     for (const { rule, obligation } of rules) {
+      // Deduplication: skip if this rule already fired today
+      if (rule.lastTriggeredAt) {
+        const lastFiredDate = new Date(rule.lastTriggeredAt).toISOString().split("T")[0];
+        if (lastFiredDate === todayStr) {
+          logger.info(
+            { ruleId: rule.id, obligationId: obligation.id },
+            "Rule already fired today — skipping",
+          );
+          continue;
+        }
+      }
+
       // Calculate when this reminder should fire
-      const dueDate = new Date(obligation.dueDate);
+      const dueDate = new Date(obligation.dueDate + "T12:00:00Z");
       const reminderDate = new Date(dueDate);
-      reminderDate.setDate(reminderDate.getDate() - rule.daysBefore);
+      reminderDate.setUTCDate(reminderDate.getUTCDate() - rule.daysBefore);
       const reminderDateStr = reminderDate.toISOString().split("T")[0];
 
       if (reminderDateStr !== todayStr) continue;
@@ -111,13 +119,8 @@ export async function processReminders(): Promise<void> {
 
       if (rule.recipientType === "owner" && obligation.ownerEmail) {
         recipients.push(obligation.ownerEmail);
-      } else if (
-        rule.recipientType === "backup_owner" &&
-        obligation.backupOwnerEmail
-      ) {
+      } else if (rule.recipientType === "backup_owner" && obligation.backupOwnerEmail) {
         recipients.push(obligation.backupOwnerEmail);
-
-        // Escalate to backup owner if primary owner didn't complete
         if (obligation.ownerEmail && !obligation.completedAt) {
           recipients.push(obligation.ownerEmail);
         }
@@ -139,48 +142,61 @@ export async function processReminders(): Promise<void> {
         continue;
       }
 
+      const daysUntilDue = Math.ceil(
+        (new Date(obligation.dueDate + "T12:00:00Z").getTime() - today.getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+
       const subject = `Reminder: "${obligation.title}" is due in ${rule.daysBefore} day(s)`;
-      const body = `
-Hello,
+      const body = `Hello,
 
 This is a reminder that the following obligation is coming up:
 
-Title: ${obligation.title}
-Category: ${obligation.category}
-Due Date: ${obligation.dueDate}
-Days Until Due: ${rule.daysBefore}
-
-${obligation.notes ? `Notes: ${obligation.notes}` : ""}
+Title:        ${obligation.title}
+Category:     ${obligation.category}
+Due Date:     ${obligation.dueDate}
+Days Until Due: ${daysUntilDue}
+${obligation.ownerEmail ? `Owner:        ${obligation.ownerEmail}` : ""}
+${obligation.notes ? `\nNotes: ${obligation.notes}` : ""}
 
 Please log in to Renewal Radar to take action.
 
-— Renewal Radar
-`.trim();
+— Renewal Radar`.trim();
 
-      for (const email of [...new Set(recipients)]) {
-        if (!email) continue;
-        const success = await sendEmail(email, subject, body);
+      const uniqueRecipients = [...new Set(recipients)].filter(Boolean);
+
+      for (const email of uniqueRecipients) {
+        const smtpConfigured = !!process.env.SMTP_HOST;
+        const success = smtpConfigured ? await sendEmail(email, subject, body) : false;
+
+        const deliveryStatus = smtpConfigured
+          ? success
+            ? "sent"
+            : "failed"
+          : "pending";
+
+        const errorMsg = smtpConfigured
+          ? success
+            ? null
+            : "Email send failed"
+          : "SMTP not configured — delivery pending";
 
         await db.insert(deliveryHistoryTable).values({
           obligationId: obligation.id,
           ruleId: rule.id,
           channel: rule.channel,
           recipientEmail: email,
-          status: success ? "sent" : "failed",
-          errorMessage: success ? null : "Email send failed",
+          status: deliveryStatus as "sent" | "failed" | "pending",
+          errorMessage: errorMsg,
         });
 
         logger.info(
-          {
-            obligationId: obligation.id,
-            email,
-            status: success ? "sent" : "failed",
-          },
+          { obligationId: obligation.id, email, status: deliveryStatus },
           "Reminder delivery recorded",
         );
       }
 
-      // Update lastTriggeredAt
+      // Update lastTriggeredAt to now to prevent duplicate fires today
       await db
         .update(reminderRulesTable)
         .set({ lastTriggeredAt: new Date() })
@@ -193,13 +209,16 @@ Please log in to Renewal Radar to take action.
   }
 }
 
-// Start hourly interval
-export function startReminderScheduler(): void {
+// Start hourly interval — returns a cleanup function for graceful shutdown
+export function startReminderScheduler(): () => void {
   logger.info("Starting hourly reminder scheduler");
 
-  // Run once on startup (after 5 seconds to let DB settle)
-  setTimeout(() => processReminders(), 5000);
+  const startupTimer = setTimeout(() => processReminders(), 5000);
+  const interval = setInterval(() => processReminders(), 60 * 60 * 1000);
 
-  // Then every hour
-  setInterval(() => processReminders(), 60 * 60 * 1000);
+  return () => {
+    clearTimeout(startupTimer);
+    clearInterval(interval);
+    logger.info("Reminder scheduler stopped");
+  };
 }

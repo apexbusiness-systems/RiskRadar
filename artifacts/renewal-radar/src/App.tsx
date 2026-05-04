@@ -6,6 +6,7 @@ import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { queryClient } from "@/lib/queryClient";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import LandingPage from "@/pages/landing";
 import DashboardPage from "@/pages/dashboard";
 import ObligationsPage from "@/pages/obligations";
@@ -172,39 +173,41 @@ function AppRouter() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
-        <TooltipProvider>
-          <Switch>
-            <Route path="/" component={HomeRedirect} />
-            <Route path="/sign-in/*?" component={SignInPage} />
-            <Route path="/sign-up/*?" component={SignUpPage} />
-            <Route path="/dashboard">
-              <ProtectedRoute component={DashboardPage} />
-            </Route>
-            <Route path="/obligations/new">
-              <ProtectedRoute component={ObligationNewPage} />
-            </Route>
-            <Route path="/obligations/:id">
-              <ProtectedRoute component={ObligationDetailPage} />
-            </Route>
-            <Route path="/obligations">
-              <ProtectedRoute component={ObligationsPage} />
-            </Route>
-            <Route path="/import">
-              <ProtectedRoute component={ImportPage} />
-            </Route>
-            <Route path="/delivery">
-              <ProtectedRoute component={DeliveryPage} />
-            </Route>
-            <Route path="/audit">
-              <ProtectedRoute component={AuditPage} />
-            </Route>
-            <Route path="/workspace">
-              <ProtectedRoute component={WorkspacePage} />
-            </Route>
-            <Route component={NotFound} />
-          </Switch>
-        </TooltipProvider>
-        <Toaster />
+        <WorkspaceProvider>
+          <TooltipProvider>
+            <Switch>
+              <Route path="/" component={HomeRedirect} />
+              <Route path="/sign-in/*?" component={SignInPage} />
+              <Route path="/sign-up/*?" component={SignUpPage} />
+              <Route path="/dashboard">
+                <ProtectedRoute component={DashboardPage} />
+              </Route>
+              <Route path="/obligations/new">
+                <ProtectedRoute component={ObligationNewPage} />
+              </Route>
+              <Route path="/obligations/:id">
+                <ProtectedRoute component={ObligationDetailPage} />
+              </Route>
+              <Route path="/obligations">
+                <ProtectedRoute component={ObligationsPage} />
+              </Route>
+              <Route path="/import">
+                <ProtectedRoute component={ImportPage} />
+              </Route>
+              <Route path="/delivery">
+                <ProtectedRoute component={DeliveryPage} />
+              </Route>
+              <Route path="/audit">
+                <ProtectedRoute component={AuditPage} />
+              </Route>
+              <Route path="/workspace">
+                <ProtectedRoute component={WorkspacePage} />
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
+          </TooltipProvider>
+          <Toaster />
+        </WorkspaceProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );
