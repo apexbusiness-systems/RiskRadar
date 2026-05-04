@@ -126,6 +126,7 @@
   --chart-5: 0 84.2% 60.2%;
 
   --app-font-sans: 'Inter', sans-serif;
+  --app-font-display: 'Space Grotesk', 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: .5rem; /* 8px */
