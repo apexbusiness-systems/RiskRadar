@@ -10,6 +10,7 @@ import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAu
 import type { Request, Response } from "express";
 
 const router = Router();
+const PENDING_MEMBER_PREFIX = "pending:";
 
 // ── Membership helpers ───────────────────────────────────────────────────────
 
@@ -24,7 +25,10 @@ async function getMember(workspaceId: number, clerkUserId: string) {
       ),
     )
     .limit(1);
-  return member ?? null;
+  if (!member) return null;
+  // Pending invites never count as authenticated membership.
+  if (member.clerkUserId.startsWith(PENDING_MEMBER_PREFIX)) return null;
+  return member;
 }
 
 async function ensureMember(
@@ -198,8 +202,14 @@ router.get("/:workspaceId/members", requireAuth, async (req: Request, res: Respo
       .select()
       .from(workspaceMembersTable)
       .where(eq(workspaceMembersTable.workspaceId, workspaceId));
-
-    res.json(members);
+    res.json(
+      members.map((m) => ({
+        ...m,
+        inviteStatus: m.clerkUserId.startsWith(PENDING_MEMBER_PREFIX)
+          ? "pending"
+          : "accepted",
+      })),
+    );
   } catch (err) {
     req.log.error({ err }, "listMembers error");
     res.status(500).json({ error: "Internal server error" });
@@ -226,7 +236,7 @@ router.post("/:workspaceId/members", requireAuth, async (req: Request, res: Resp
     }
 
     // Validate role
-    const validRoles = ["owner", "admin", "member"];
+    const validRoles = ["admin", "member"];
     if (!validRoles.includes(role)) {
       res.status(400).json({ error: `role must be one of: ${validRoles.join(", ")}` });
       return;
@@ -254,7 +264,7 @@ router.post("/:workspaceId/members", requireAuth, async (req: Request, res: Resp
       .values({
         workspaceId,
         // Placeholder clerkUserId until the invited user signs in via Clerk
-        clerkUserId: `pending:${email}`,
+        clerkUserId: `${PENDING_MEMBER_PREFIX}${String(email).toLowerCase().trim()}`,
         email: String(email).toLowerCase().trim(),
         name: name ? String(name).slice(0, 200) : null,
         role,
@@ -268,6 +278,10 @@ router.post("/:workspaceId/members", requireAuth, async (req: Request, res: Resp
       details: { email, role },
     });
 
+    req.log.info(
+      { workspaceId, role, actorUserId: userId },
+      "security.invite.created",
+    );
     res.status(201).json({ ...member, status: "pending_signup" });
   } catch (err) {
     req.log.error({ err }, "inviteMember error");
