@@ -14,6 +14,10 @@ export const requireAuth = (
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) {
+    req.log?.warn(
+      { path: req.path, method: req.method },
+      "security.auth.unauthorized",
+    );
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
