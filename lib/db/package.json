@@ -8,8 +8,11 @@
     "./schema": "./src/schema/index.ts"
   },
   "scripts": {
+    "generate": "drizzle-kit generate --config ./drizzle.config.ts",
+    "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "check:migration-policy": "node -e \"if(['staging','production','prod'].includes((process.env.APP_ENV||process.env.NODE_ENV||'').toLowerCase())){console.error('Migration policy violation: drizzle push is forbidden in promoted environments. Use checked-in migrations with pnpm --filter @workspace/db run migrate.');process.exit(1)}console.log('Migration policy check passed for demo/dev environment.');\""
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

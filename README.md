@@ -53,9 +53,8 @@ Set these to enable outbound reminder emails. Without them, reminders are logged
 # 1. Install dependencies
 pnpm install
 
-# 2. Set environment variables
-cp .env.example .env
-# Edit .env with your DATABASE_URL, CLERK keys, etc.
+# 2. Set environment variables in your shell or Replit Secrets
+# Required: DATABASE_URL, CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY, VITE_CLERK_PUBLISHABLE_KEY
 
 # 3. Push database schema
 pnpm --filter @workspace/db run push
@@ -104,4 +103,21 @@ Runs every hour inside the API server process:
 pnpm run typecheck                         # Full TypeScript check
 pnpm --filter @workspace/api-spec codegen  # Regenerate API hooks from OpenAPI
 pnpm --filter @workspace/db run push       # Push schema to dev DB
+pnpm --filter @workspace/db run generate   # Generate checked-in SQL migrations
+pnpm --filter @workspace/db run migrate    # Apply checked-in migrations
+pnpm --filter @workspace/db run check:migration-policy # Guard push usage by environment
 ```
+
+## Migration Policy (APEX Step 3)
+
+### Demo / Replit environments
+- `drizzle-kit push` is allowed only for **explicit demo/dev** workflows.
+- Use `pnpm --filter @workspace/db run push` for rapid local/demo schema sync.
+
+### Staging / Production environments
+- `drizzle-kit push` and `push-force` are forbidden.
+- Only apply **checked-in migrations**:
+  1. Generate with `pnpm --filter @workspace/db run generate`
+  2. Review migration SQL in PR
+  3. Apply with `pnpm --filter @workspace/db run migrate`
+- Run `pnpm --filter @workspace/db run check:migration-policy` in CI/release jobs before any schema command.
