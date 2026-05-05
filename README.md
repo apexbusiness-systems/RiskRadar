@@ -121,3 +121,10 @@ pnpm --filter @workspace/db run check:migration-policy # Guard push usage by env
   2. Review migration SQL in PR
   3. Apply with `pnpm --filter @workspace/db run migrate`
 - Run `pnpm --filter @workspace/db run check:migration-policy` in CI/release jobs before any schema command.
+
+## Invite Lifecycle Notes (APEX Step 4)
+
+- Invites are stored as pending membership rows and marked by `clerk_user_id` prefix `pending:`.
+- Pending invite rows are never treated as active membership in server-side authorization checks.
+- On authenticated seed/bootstrap, pending rows that match user email are reconciled to the real Clerk user id and logged as invite acceptance.
+- Full Clerk webhook-driven invite reconciliation is not implemented yet; this remains a documented limitation.

@@ -7,11 +7,12 @@ import {
   deliveryHistoryTable,
   auditLogsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { logger } from "./logger";
 
 export async function seedDemoData(clerkUserId: string, email: string, name?: string): Promise<{ workspaceId: number }> {
   logger.info({ clerkUserId }, "Seeding demo data");
+  const normalizedEmail = email.toLowerCase().trim();
 
   // Check if user already has a workspace
   const existing = await db
@@ -29,6 +30,42 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
     return { workspaceId: workspace.id };
   }
 
+  // Accept any pending invite rows mapped by email.
+  const [pendingInvite] = await db
+    .select()
+    .from(workspaceMembersTable)
+    .where(
+      and(
+        eq(workspaceMembersTable.email, normalizedEmail),
+        eq(workspaceMembersTable.clerkUserId, `pending:${normalizedEmail}`),
+      ),
+    )
+    .limit(1);
+
+  if (pendingInvite) {
+    await db
+      .update(workspaceMembersTable)
+      .set({
+        clerkUserId,
+        name: name ? String(name).slice(0, 200) : pendingInvite.name,
+      })
+      .where(eq(workspaceMembersTable.id, pendingInvite.id));
+
+    await db.insert(auditLogsTable).values({
+      workspaceId: pendingInvite.workspaceId,
+      actorClerkId: clerkUserId,
+      actorName: name || normalizedEmail,
+      action: "member.invite.accepted",
+      details: { role: pendingInvite.role },
+    });
+
+    logger.info(
+      { workspaceId: pendingInvite.workspaceId, clerkUserId },
+      "security.invite.accepted",
+    );
+    return { workspaceId: pendingInvite.workspaceId };
+  }
+
   // Create demo workspace
   const [workspace] = await db
     .insert(workspacesTable)
@@ -39,7 +76,7 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
   await db.insert(workspaceMembersTable).values({
     workspaceId: workspace.id,
     clerkUserId,
-    email,
+    email: normalizedEmail,
     name: name || email.split("@")[0],
     role: "owner",
   });
