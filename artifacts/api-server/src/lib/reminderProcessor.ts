@@ -6,7 +6,7 @@ import {
   auditLogsTable,
   workspaceMembersTable,
 } from "@workspace/db";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, gte, lt } from "drizzle-orm";
 import { logger } from "./logger";
 
 async function sendEmail(to: string, subject: string, body: string): Promise<boolean> {
@@ -42,7 +42,8 @@ async function sendEmail(to: string, subject: string, body: string): Promise<boo
 }
 
 export async function processReminders(): Promise<void> {
-  logger.info("Running reminder processor");
+  const runId = `reminder-${Date.now()}`;
+  logger.info({ runId }, "Running reminder processor");
 
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
@@ -166,6 +167,30 @@ Please log in to Renewal Radar to take action.
       const uniqueRecipients = [...new Set(recipients)].filter(Boolean);
 
       for (const email of uniqueRecipients) {
+        // Application-level idempotency guard: one delivery record per rule/obligation/recipient/day.
+        const dayStart = new Date(`${todayStr}T00:00:00.000Z`);
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const [existingDelivery] = await db
+          .select({ id: deliveryHistoryTable.id })
+          .from(deliveryHistoryTable)
+          .where(
+            and(
+              eq(deliveryHistoryTable.obligationId, obligation.id),
+              eq(deliveryHistoryTable.ruleId, rule.id),
+              eq(deliveryHistoryTable.recipientEmail, email),
+              gte(deliveryHistoryTable.sentAt, dayStart),
+              lt(deliveryHistoryTable.sentAt, dayEnd),
+            ),
+          )
+          .limit(1);
+        if (existingDelivery) {
+          logger.info(
+            { runId, ruleId: rule.id, obligationId: obligation.id },
+            "Skipping duplicate reminder delivery for recipient/day",
+          );
+          continue;
+        }
+
         const smtpConfigured = !!process.env.SMTP_HOST;
         const success = smtpConfigured ? await sendEmail(email, subject, body) : false;
 
@@ -191,7 +216,7 @@ Please log in to Renewal Radar to take action.
         });
 
         logger.info(
-          { obligationId: obligation.id, email, status: deliveryStatus },
+          { runId, obligationId: obligation.id, status: deliveryStatus },
           "Reminder delivery recorded",
         );
       }
@@ -203,9 +228,9 @@ Please log in to Renewal Radar to take action.
         .where(eq(reminderRulesTable.id, rule.id));
     }
 
-    logger.info("Reminder processor complete");
+    logger.info({ runId }, "Reminder processor complete");
   } catch (err) {
-    logger.error({ err }, "Reminder processor error");
+    logger.error({ err, runId }, "Reminder processor error");
   }
 }
 

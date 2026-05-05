@@ -27,8 +27,15 @@ const server = app.listen(port, (err?: Error) => {
   }
   logger.info({ port }, "Server listening");
 
-  // Start the hourly reminder scheduler
-  const stopScheduler = startReminderScheduler();
+  const schedulerEnabled = process.env.ENABLE_REMINDER_SCHEDULER === "true";
+  logger.info(
+    { schedulerEnabled },
+    "Reminder scheduler startup state evaluated",
+  );
+  // Scheduler is explicit opt-in to avoid duplicate workers across runtimes.
+  const stopScheduler = schedulerEnabled
+    ? startReminderScheduler()
+    : () => logger.info("Reminder scheduler disabled");
 
   // Graceful shutdown on SIGTERM / SIGINT
   const shutdown = (signal: string) => {
