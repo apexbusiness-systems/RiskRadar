@@ -38,6 +38,7 @@ Set these to enable outbound reminder emails. Without them, reminders are logged
 | `SMTP_USER` | SMTP username | `apikey` |
 | `SMTP_PASS` | SMTP password/API key | `SG.xxxxx` |
 | `SMTP_FROM` | Sender address | `noreply@yourapp.com` |
+| `DEMO_DATA_MODE` | Seed synthetic demo identities (`true` default, set `false` to use real sign-in email in seed data) | `true` |
 
 ## Setup & Quickstart
 
@@ -128,3 +129,12 @@ pnpm --filter @workspace/db run check:migration-policy # Guard push usage by env
 - Pending invite rows are never treated as active membership in server-side authorization checks.
 - On authenticated seed/bootstrap, pending rows that match user email are reconciled to the real Clerk user id and logged as invite acceptance.
 - Full Clerk webhook-driven invite reconciliation is not implemented yet; this remains a documented limitation.
+
+## Demo Data Safety (APEX Step 5)
+
+- Seeded demo records are synthetic and use clearly fake identifiers (including `example.com` email domains).
+- Do **not** import real customer data into any public demo environment.
+- To reset demo records safely:
+  1. Use app workspace/member controls to remove demo-only workspaces, or
+  2. In a non-production database session, delete by known demo workspace slug prefix (`demo-`) after review.
+- Avoid destructive broad deletes; always scope cleanup to known demo workspaces.

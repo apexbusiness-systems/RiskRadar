@@ -13,6 +13,9 @@ import { logger } from "./logger";
 export async function seedDemoData(clerkUserId: string, email: string, name?: string): Promise<{ workspaceId: number }> {
   logger.info({ clerkUserId }, "Seeding demo data");
   const normalizedEmail = email.toLowerCase().trim();
+  const demoDataMode = process.env.DEMO_DATA_MODE !== "false";
+  const demoOwnerEmail = "owner@northstar-demo.example.com";
+  const seedOwnerEmail = demoDataMode ? demoOwnerEmail : normalizedEmail;
 
   // Check if user already has a workspace
   const existing = await db
@@ -69,15 +72,15 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
   // Create demo workspace
   const [workspace] = await db
     .insert(workspacesTable)
-    .values({ name: "Acme Corp", slug: `acme-${Date.now()}` })
+    .values({ name: "Northstar Demo Operations", slug: `demo-${Date.now()}` })
     .returning();
 
   // Add user as owner
   await db.insert(workspaceMembersTable).values({
     workspaceId: workspace.id,
     clerkUserId,
-    email: normalizedEmail,
-    name: name || email.split("@")[0],
+    email: seedOwnerEmail,
+    name: name || "Demo Owner",
     role: "owner",
   });
 
@@ -99,7 +102,7 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       status: "active" as const,
       dueDate: addDays(today, 15),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       notes: "Contact city hall for renewal form",
       tags: ["city", "annual"],
     },
@@ -111,31 +114,31 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       status: "active" as const,
       dueDate: addDays(today, 45),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       notes: "Get at least 3 quotes before renewing",
       tags: ["insurance", "annual"],
     },
     {
       workspaceId: workspace.id,
-      title: "SaaS Vendor Contract - Salesforce",
-      description: "Annual Salesforce CRM contract renewal",
+      title: "SaaS Vendor Contract - Northstar CRM",
+      description: "Annual Northstar CRM contract renewal",
       category: "Contracts",
       status: "active" as const,
       dueDate: addDays(today, 8),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       notes: "Negotiate pricing before renewal",
       tags: ["saas", "crm"],
     },
     {
       workspaceId: workspace.id,
-      title: "AWS Infrastructure Credits",
-      description: "Quarterly review of AWS spending and credits",
+      title: "Cloud Platform Credits Review",
+      description: "Quarterly review of cloud spending and credits",
       category: "Software",
       status: "active" as const,
       dueDate: addDays(today, 22),
       renewalFrequency: "quarterly" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       tags: ["cloud", "quarterly"],
     },
     {
@@ -146,19 +149,19 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       status: "active" as const,
       dueDate: subDays(today, 5),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       notes: "Include any new labor law changes",
       tags: ["hr", "compliance"],
     },
     {
       workspaceId: workspace.id,
-      title: "Domain Name Renewal - acmecorp.com",
+      title: "Domain Name Renewal - northstar-demo.example.com",
       description: "Annual domain registration renewal",
       category: "Software",
       status: "active" as const,
       dueDate: addDays(today, 60),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       tags: ["domain", "annual"],
     },
     {
@@ -169,7 +172,7 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       status: "completed" as const,
       dueDate: subDays(today, 30),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       tags: ["insurance", "annual"],
     },
     {
@@ -180,7 +183,7 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       status: "active" as const,
       dueDate: addDays(today, 90),
       renewalFrequency: "annually" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       notes: "Review market rates before negotiation",
       tags: ["lease", "real-estate"],
     },
@@ -192,7 +195,7 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       status: "active" as const,
       dueDate: addDays(today, 3),
       renewalFrequency: "quarterly" as const,
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       tags: ["gdpr", "compliance", "quarterly"],
     },
     {
@@ -202,7 +205,7 @@ export async function seedDemoData(clerkUserId: string, email: string, name?: st
       category: "Licensing",
       status: "expired" as const,
       dueDate: subDays(today, 10),
-      ownerEmail: email,
+      ownerEmail: seedOwnerEmail,
       tags: ["permits", "staff"],
     },
   ];
