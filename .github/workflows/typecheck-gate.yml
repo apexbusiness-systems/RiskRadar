@@ -1,0 +1,43 @@
+name: Typecheck Gate
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: P0 root typecheck gate
+        run: pnpm run typecheck
+      - name: P0 recursive workspace typecheck gate
+        run: pnpm -r --if-present run typecheck
+      - name: P1 classify typecheck failures
+        run: pnpm run typecheck:classify
+
+  clean-build-mode-nightly:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: P2 clean build-mode sanity
+        run: pnpm run typecheck:clean-build-mode
