@@ -9,6 +9,7 @@ import {
 import { eq, and, gte, lte, sql, isNull, notExists } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAuth";
 import type { Request, Response } from "express";
+import { assertWorkspaceMember } from "../lib/authz";
 
 const router = Router();
 
@@ -40,12 +41,9 @@ router.get("/metrics", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const workspaceId = parseInt(workspaceIdParam);
-    const member = await isMember(workspaceId, userId);
-    if (!member) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
+    const workspaceId = parseInt(workspaceIdParam, 10);
+    if (!Number.isInteger(workspaceId)) { res.status(400).json({ error: "Invalid workspaceId" }); return; }
+    await assertWorkspaceMember(workspaceId, userId);
 
     const today = new Date().toISOString().split("T")[0];
     const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -99,12 +97,8 @@ router.get("/metrics", requireAuth, async (req: Request, res: Response) => {
     const [remindersRow] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(deliveryHistoryTable)
-      .where(
-        and(
-          eq(deliveryHistoryTable.status, "sent"),
-          gte(deliveryHistoryTable.sentAt, thirtyDaysAgo),
-        ),
-      );
+      .innerJoin(obligationsTable, eq(deliveryHistoryTable.obligationId, obligationsTable.id))
+      .where(and(eq(obligationsTable.workspaceId, workspaceId), eq(deliveryHistoryTable.status, "sent"), gte(deliveryHistoryTable.sentAt, thirtyDaysAgo)));
     const remindersSentLast30Days = remindersRow?.count ?? 0;
 
     // By category
@@ -150,12 +144,9 @@ router.get("/upcoming", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const workspaceId = parseInt(workspaceIdParam);
-    const member = await isMember(workspaceId, userId);
-    if (!member) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
+    const workspaceId = parseInt(workspaceIdParam, 10);
+    if (!Number.isInteger(workspaceId)) { res.status(400).json({ error: "Invalid workspaceId" }); return; }
+    await assertWorkspaceMember(workspaceId, userId);
 
     const days = Math.min(parseInt((req.query.days as string) || "30"), 90);
     const today = new Date().toISOString().split("T")[0];
@@ -196,12 +187,9 @@ router.get("/risk", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const workspaceId = parseInt(workspaceIdParam);
-    const member = await isMember(workspaceId, userId);
-    if (!member) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
+    const workspaceId = parseInt(workspaceIdParam, 10);
+    if (!Number.isInteger(workspaceId)) { res.status(400).json({ error: "Invalid workspaceId" }); return; }
+    await assertWorkspaceMember(workspaceId, userId);
 
     const today = new Date().toISOString().split("T")[0];
     const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
