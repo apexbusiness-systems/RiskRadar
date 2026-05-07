@@ -1,43 +1,33 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { auditLogsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
-import { requireAuth } from "../middlewares/requireAuth";
+import { and, desc, eq } from "drizzle-orm";
+import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAuth";
 import type { Request, Response } from "express";
+import { auditLogsTable, HttpError, parsePositiveInt, scopeAuditLogQuery } from "../lib/authz";
 
 const router = Router();
 
-// GET /api/audit-logs
-router.get("/", requireAuth, async (req: Request, res: Response) => {
+router.get("/", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthenticatedRequest).userId;
   try {
-    const { workspaceId, obligationId, limit: limitStr } = req.query as Record<string, string>;
-    const limit = parseInt(limitStr || "50");
+    const workspaceId = parsePositiveInt(req.query.workspaceId as string | undefined, "workspaceId");
+    const obligationId = req.query.obligationId ? parsePositiveInt(req.query.obligationId as string, "obligationId") : undefined;
+    const limit = Math.min(parsePositiveInt((req.query.limit as string | undefined) ?? "50", "limit"), 200);
 
-    const filters = [];
-    if (workspaceId) {
-      filters.push(eq(auditLogsTable.workspaceId, parseInt(workspaceId)));
-    }
-    if (obligationId) {
-      filters.push(eq(auditLogsTable.obligationId, parseInt(obligationId)));
-    }
-
-    const logs = filters.length
-      ? await db
-          .select()
-          .from(auditLogsTable)
-          .where(and(...filters))
-          .orderBy(desc(auditLogsTable.createdAt))
-          .limit(limit)
-      : await db
-          .select()
-          .from(auditLogsTable)
-          .orderBy(desc(auditLogsTable.createdAt))
-          .limit(limit);
-
+    const scopeClause = await scopeAuditLogQuery(workspaceId, userId);
+    const logs = await db.select().from(auditLogsTable)
+      .where(and(scopeClause, obligationId ? eq(auditLogsTable.obligationId, obligationId) : undefined))
+      .orderBy(desc(auditLogsTable.createdAt)).limit(limit);
     res.json(logs);
+    return;
   } catch (err) {
+    if (err instanceof HttpError) {
+      res.status(err.statusCode).json({ error: err.message });
+      return;
+    }
     req.log.error({ err }, "listAuditLogs error");
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
