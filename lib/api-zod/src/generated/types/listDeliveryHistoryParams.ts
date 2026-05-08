@@ -8,7 +8,7 @@
 import type { ListDeliveryHistoryStatus } from "./listDeliveryHistoryStatus";
 
 export type ListDeliveryHistoryParams = {
-  workspaceId?: number;
+  workspaceId: number;
   obligationId?: number;
   status?: ListDeliveryHistoryStatus;
   limit?: number;

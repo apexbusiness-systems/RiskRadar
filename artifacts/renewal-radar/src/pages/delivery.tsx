@@ -7,6 +7,7 @@ import {
 import { format } from "date-fns";
 import { Bell, CheckCircle2, XCircle, Clock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; icon: React.ComponentType<{ className?: string }> }> = {
   sent:    { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700", dot: "bg-emerald-500", icon: CheckCircle2 },
@@ -15,9 +16,15 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; ico
 };
 
 export default function DeliveryPage() {
+  const { workspaceId } = useWorkspace();
   const deliveryQuery = useListDeliveryHistory(
-    { limit: 100 },
-    { query: { queryKey: getListDeliveryHistoryQueryKey({ limit: 100 }) } },
+    { workspaceId: workspaceId ?? 0, limit: 100 },
+    {
+      query: {
+        queryKey: getListDeliveryHistoryQueryKey({ workspaceId: workspaceId ?? 0, limit: 100 }),
+        enabled: !!workspaceId,
+      },
+    },
   );
   const records = deliveryQuery.data ?? [];
 

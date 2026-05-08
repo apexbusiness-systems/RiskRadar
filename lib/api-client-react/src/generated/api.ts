@@ -27,9 +27,11 @@ import type {
   CsvPreviewBody,
   CsvPreviewResult,
   DashboardMetrics,
+  DashboardRisk,
   DeliveryRecord,
   ExportObligationsCsvParams,
   GetDashboardMetricsParams,
+  GetDashboardRiskParams,
   GetUpcomingObligationsParams,
   HealthStatus,
   InviteMemberBody,
@@ -130,7 +132,7 @@ export function useHealthCheck<
  * @summary Get dashboard summary metrics
  */
 export const getGetDashboardMetricsUrl = (
-  params?: GetDashboardMetricsParams,
+  params: GetDashboardMetricsParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -148,7 +150,7 @@ export const getGetDashboardMetricsUrl = (
 };
 
 export const getDashboardMetrics = async (
-  params?: GetDashboardMetricsParams,
+  params: GetDashboardMetricsParams,
   options?: RequestInit,
 ): Promise<DashboardMetrics> => {
   return customFetch<DashboardMetrics>(getGetDashboardMetricsUrl(params), {
@@ -167,7 +169,7 @@ export const getGetDashboardMetricsQueryOptions = <
   TData = Awaited<ReturnType<typeof getDashboardMetrics>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetDashboardMetricsParams,
+  params: GetDashboardMetricsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getDashboardMetrics>>,
@@ -207,7 +209,7 @@ export function useGetDashboardMetrics<
   TData = Awaited<ReturnType<typeof getDashboardMetrics>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetDashboardMetricsParams,
+  params: GetDashboardMetricsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getDashboardMetrics>>,
@@ -227,10 +229,107 @@ export function useGetDashboardMetrics<
 }
 
 /**
+ * @summary Get risk cockpit metrics
+ */
+export const getGetDashboardRiskUrl = (params: GetDashboardRiskParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/dashboard/risk?${stringifiedParams}`
+    : `/api/dashboard/risk`;
+};
+
+export const getDashboardRisk = async (
+  params: GetDashboardRiskParams,
+  options?: RequestInit,
+): Promise<DashboardRisk> => {
+  return customFetch<DashboardRisk>(getGetDashboardRiskUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDashboardRiskQueryKey = (
+  params?: GetDashboardRiskParams,
+) => {
+  return [`/api/dashboard/risk`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetDashboardRiskQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDashboardRisk>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetDashboardRiskParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardRisk>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetDashboardRiskQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getDashboardRisk>>
+  > = ({ signal }) => getDashboardRisk(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getDashboardRisk>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetDashboardRiskQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDashboardRisk>>
+>;
+export type GetDashboardRiskQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get risk cockpit metrics
+ */
+
+export function useGetDashboardRisk<
+  TData = Awaited<ReturnType<typeof getDashboardRisk>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetDashboardRiskParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDashboardRisk>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDashboardRiskQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get upcoming obligations (next 30 days)
  */
 export const getGetUpcomingObligationsUrl = (
-  params?: GetUpcomingObligationsParams,
+  params: GetUpcomingObligationsParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -248,7 +347,7 @@ export const getGetUpcomingObligationsUrl = (
 };
 
 export const getUpcomingObligations = async (
-  params?: GetUpcomingObligationsParams,
+  params: GetUpcomingObligationsParams,
   options?: RequestInit,
 ): Promise<Obligation[]> => {
   return customFetch<Obligation[]>(getGetUpcomingObligationsUrl(params), {
@@ -267,7 +366,7 @@ export const getGetUpcomingObligationsQueryOptions = <
   TData = Awaited<ReturnType<typeof getUpcomingObligations>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetUpcomingObligationsParams,
+  params: GetUpcomingObligationsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getUpcomingObligations>>,
@@ -307,7 +406,7 @@ export function useGetUpcomingObligations<
   TData = Awaited<ReturnType<typeof getUpcomingObligations>>,
   TError = ErrorType<unknown>,
 >(
-  params?: GetUpcomingObligationsParams,
+  params: GetUpcomingObligationsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getUpcomingObligations>>,
@@ -938,7 +1037,7 @@ export const useRemoveWorkspaceMember = <
 /**
  * @summary List obligations with optional filters
  */
-export const getListObligationsUrl = (params?: ListObligationsParams) => {
+export const getListObligationsUrl = (params: ListObligationsParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -955,7 +1054,7 @@ export const getListObligationsUrl = (params?: ListObligationsParams) => {
 };
 
 export const listObligations = async (
-  params?: ListObligationsParams,
+  params: ListObligationsParams,
   options?: RequestInit,
 ): Promise<Obligation[]> => {
   return customFetch<Obligation[]>(getListObligationsUrl(params), {
@@ -972,7 +1071,7 @@ export const getListObligationsQueryOptions = <
   TData = Awaited<ReturnType<typeof listObligations>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListObligationsParams,
+  params: ListObligationsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listObligations>>,
@@ -1010,7 +1109,7 @@ export function useListObligations<
   TData = Awaited<ReturnType<typeof listObligations>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListObligationsParams,
+  params: ListObligationsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listObligations>>,
@@ -1843,7 +1942,7 @@ export const useDeleteReminderRule = <
  * @summary List reminder delivery history
  */
 export const getListDeliveryHistoryUrl = (
-  params?: ListDeliveryHistoryParams,
+  params: ListDeliveryHistoryParams,
 ) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1861,7 +1960,7 @@ export const getListDeliveryHistoryUrl = (
 };
 
 export const listDeliveryHistory = async (
-  params?: ListDeliveryHistoryParams,
+  params: ListDeliveryHistoryParams,
   options?: RequestInit,
 ): Promise<DeliveryRecord[]> => {
   return customFetch<DeliveryRecord[]>(getListDeliveryHistoryUrl(params), {
@@ -1880,7 +1979,7 @@ export const getListDeliveryHistoryQueryOptions = <
   TData = Awaited<ReturnType<typeof listDeliveryHistory>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListDeliveryHistoryParams,
+  params: ListDeliveryHistoryParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listDeliveryHistory>>,
@@ -1920,7 +2019,7 @@ export function useListDeliveryHistory<
   TData = Awaited<ReturnType<typeof listDeliveryHistory>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListDeliveryHistoryParams,
+  params: ListDeliveryHistoryParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listDeliveryHistory>>,
@@ -1942,7 +2041,7 @@ export function useListDeliveryHistory<
 /**
  * @summary List audit log entries
  */
-export const getListAuditLogsUrl = (params?: ListAuditLogsParams) => {
+export const getListAuditLogsUrl = (params: ListAuditLogsParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -1959,7 +2058,7 @@ export const getListAuditLogsUrl = (params?: ListAuditLogsParams) => {
 };
 
 export const listAuditLogs = async (
-  params?: ListAuditLogsParams,
+  params: ListAuditLogsParams,
   options?: RequestInit,
 ): Promise<AuditLog[]> => {
   return customFetch<AuditLog[]>(getListAuditLogsUrl(params), {
@@ -1976,7 +2075,7 @@ export const getListAuditLogsQueryOptions = <
   TData = Awaited<ReturnType<typeof listAuditLogs>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListAuditLogsParams,
+  params: ListAuditLogsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listAuditLogs>>,
@@ -2014,7 +2113,7 @@ export function useListAuditLogs<
   TData = Awaited<ReturnType<typeof listAuditLogs>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListAuditLogsParams,
+  params: ListAuditLogsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listAuditLogs>>,

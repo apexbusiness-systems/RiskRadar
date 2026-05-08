@@ -1,6 +1,5 @@
 import { useUser } from "@clerk/react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +8,7 @@ import {
   getGetDashboardMetricsQueryKey,
   useGetUpcomingObligations,
   getGetUpcomingObligationsQueryKey,
+  useGetDashboardRisk,
 } from "@workspace/api-client-react";
 import { StatusBadge, DueDateBadge } from "@/components/ObligationBadge";
 import {
@@ -29,21 +29,6 @@ import {
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-
-// ── Types ───────────────────────────────────────────────────────────────────
-
-interface RiskData {
-  riskScore: number;
-  totalActive: number;
-  overdueCount: number;
-  criticalCount: number;
-  missingOwnerCount: number;
-  missingBackupCount: number;
-  noReminderCount: number;
-  overdueItems: Array<{ id: number; title: string; dueDate: string; category: string }>;
-  criticalItems: Array<{ id: number; title: string; dueDate: string; category: string }>;
-  noReminderItems: Array<{ id: number; title: string; dueDate: string; category: string }>;
-}
 
 // ── Metric Card ──────────────────────────────────────────────────────────────
 
@@ -113,17 +98,10 @@ function getRiskLevel(score: number): { label: string; color: string; bg: string
 // ── Risk Cockpit ─────────────────────────────────────────────────────────────
 
 function RiskCockpit({ workspaceId }: { workspaceId: number }) {
-  const riskQuery = useQuery({
-    queryKey: ["dashboard-risk", workspaceId],
-    queryFn: async (): Promise<RiskData> => {
-      const r = await fetch(`/api/dashboard/risk?workspaceId=${workspaceId}`, {
-        credentials: "include",
-      });
-      if (!r.ok) throw new Error("Failed to fetch risk data");
-      return r.json();
-    },
-    refetchInterval: 5 * 60 * 1000,
-  });
+  const riskQuery = useGetDashboardRisk(
+    { workspaceId },
+    {},
+  );
 
   if (riskQuery.isLoading) {
     return <Skeleton className="h-48 w-full rounded-2xl" />;
@@ -293,20 +271,20 @@ export default function DashboardPage() {
   const { workspaceId, isLoading: wsLoading } = useWorkspace();
 
   const metricsQuery = useGetDashboardMetrics(
-    workspaceId ? { workspaceId } : ({} as { workspaceId: number }),
+    { workspaceId: workspaceId ?? 0 },
     {
       query: {
-        queryKey: getGetDashboardMetricsQueryKey(workspaceId ? { workspaceId } : {}),
+        queryKey: getGetDashboardMetricsQueryKey({ workspaceId: workspaceId ?? 0 }),
         enabled: !!workspaceId,
       },
     },
   );
 
   const upcomingQuery = useGetUpcomingObligations(
-    workspaceId ? { workspaceId, days: 30 } : ({ days: 30 } as { workspaceId: number; days: number }),
+    { workspaceId: workspaceId ?? 0, days: 30 },
     {
       query: {
-        queryKey: getGetUpcomingObligationsQueryKey(workspaceId ? { workspaceId, days: 30 } : { days: 30 }),
+        queryKey: getGetUpcomingObligationsQueryKey({ workspaceId: workspaceId ?? 0, days: 30 }),
         enabled: !!workspaceId,
       },
     },

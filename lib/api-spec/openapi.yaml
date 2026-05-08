@@ -51,7 +51,7 @@ paths:
       parameters:
         - name: workspaceId
           in: query
-          required: false
+          required: true
           schema:
             type: integer
       responses:
@@ -62,6 +62,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardMetrics"
 
+  /dashboard/risk:
+    get:
+      operationId: getDashboardRisk
+      tags: [dashboard]
+      summary: Get risk cockpit metrics
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard risk snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardRisk"
+
   /dashboard/upcoming:
     get:
       operationId: getUpcomingObligations
@@ -71,7 +91,7 @@ paths:
       parameters:
         - name: workspaceId
           in: query
-          required: false
+          required: true
           schema:
             type: integer
         - name: days
@@ -227,7 +247,7 @@ paths:
       parameters:
         - name: workspaceId
           in: query
-          required: false
+          required: true
           schema:
             type: integer
         - name: status
@@ -442,7 +462,7 @@ paths:
       parameters:
         - name: workspaceId
           in: query
-          required: false
+          required: true
           schema:
             type: integer
         - name: obligationId
@@ -482,7 +502,7 @@ paths:
       parameters:
         - name: workspaceId
           in: query
-          required: false
+          required: true
           schema:
             type: integer
         - name: obligationId
@@ -637,6 +657,51 @@ components:
         - paused
         - remindersSentLast30Days
         - byCategory
+
+    DashboardRiskItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        dueDate:
+          type: string
+          format: date
+        category:
+          type: string
+      required: [id, title, dueDate, category]
+
+    DashboardRisk:
+      type: object
+      properties:
+        riskScore:
+          type: integer
+        totalActive:
+          type: integer
+        overdueCount:
+          type: integer
+        criticalCount:
+          type: integer
+        missingOwnerCount:
+          type: integer
+        missingBackupCount:
+          type: integer
+        noReminderCount:
+          type: integer
+        overdueItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardRiskItem"
+        criticalItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardRiskItem"
+        noReminderItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardRiskItem"
+      required: [riskScore, totalActive, overdueCount, criticalCount, missingOwnerCount, missingBackupCount, noReminderCount, overdueItems, criticalItems, noReminderItems]
 
     CategoryCount:
       type: object

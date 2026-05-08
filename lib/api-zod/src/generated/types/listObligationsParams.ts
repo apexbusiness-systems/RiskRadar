@@ -8,7 +8,7 @@
 import type { ListObligationsStatus } from "./listObligationsStatus";
 
 export type ListObligationsParams = {
-  workspaceId?: number;
+  workspaceId: number;
   status?: ListObligationsStatus;
   category?: string;
   search?: string;
