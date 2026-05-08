@@ -18,7 +18,7 @@ export const HealthCheckResponse = zod.object({
  * @summary Get dashboard summary metrics
  */
 export const GetDashboardMetricsQueryParams = zod.object({
-  workspaceId: zod.coerce.number().optional(),
+  workspaceId: zod.coerce.number(),
 });
 
 export const GetDashboardMetricsResponse = zod.object({
@@ -38,12 +38,53 @@ export const GetDashboardMetricsResponse = zod.object({
 });
 
 /**
+ * @summary Get risk cockpit metrics
+ */
+export const GetDashboardRiskQueryParams = zod.object({
+  workspaceId: zod.coerce.number(),
+});
+
+export const GetDashboardRiskResponse = zod.object({
+  riskScore: zod.number(),
+  totalActive: zod.number(),
+  overdueCount: zod.number(),
+  criticalCount: zod.number(),
+  missingOwnerCount: zod.number(),
+  missingBackupCount: zod.number(),
+  noReminderCount: zod.number(),
+  overdueItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      dueDate: zod.coerce.date(),
+      category: zod.string(),
+    }),
+  ),
+  criticalItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      dueDate: zod.coerce.date(),
+      category: zod.string(),
+    }),
+  ),
+  noReminderItems: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string(),
+      dueDate: zod.coerce.date(),
+      category: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Get upcoming obligations (next 30 days)
  */
 export const getUpcomingObligationsQueryDaysDefault = 30;
 
 export const GetUpcomingObligationsQueryParams = zod.object({
-  workspaceId: zod.coerce.number().optional(),
+  workspaceId: zod.coerce.number(),
   days: zod.coerce.number().default(getUpcomingObligationsQueryDaysDefault),
 });
 
@@ -178,7 +219,7 @@ export const RemoveWorkspaceMemberParams = zod.object({
  * @summary List obligations with optional filters
  */
 export const ListObligationsQueryParams = zod.object({
-  workspaceId: zod.coerce.number().optional(),
+  workspaceId: zod.coerce.number(),
   status: zod.enum(["active", "expired", "completed", "paused"]).optional(),
   category: zod.coerce.string().optional(),
   search: zod.coerce.string().optional(),
@@ -466,7 +507,7 @@ export const DeleteReminderRuleParams = zod.object({
 export const listDeliveryHistoryQueryLimitDefault = 50;
 
 export const ListDeliveryHistoryQueryParams = zod.object({
-  workspaceId: zod.coerce.number().optional(),
+  workspaceId: zod.coerce.number(),
   obligationId: zod.coerce.number().optional(),
   status: zod.enum(["sent", "failed", "pending"]).optional(),
   limit: zod.coerce.number().default(listDeliveryHistoryQueryLimitDefault),
@@ -493,7 +534,7 @@ export const ListDeliveryHistoryResponse = zod.array(
 export const listAuditLogsQueryLimitDefault = 50;
 
 export const ListAuditLogsQueryParams = zod.object({
-  workspaceId: zod.coerce.number().optional(),
+  workspaceId: zod.coerce.number(),
   obligationId: zod.coerce.number().optional(),
   limit: zod.coerce.number().default(listAuditLogsQueryLimitDefault),
 });

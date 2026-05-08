@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetDashboardMetricsParams = {
-  workspaceId: number;
-};
+export interface DashboardRiskItem {
+  id: number;
+  title: string;
+  dueDate: Date;
+  category: string;
+}

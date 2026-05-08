@@ -7,7 +7,7 @@
  */
 
 export type ListAuditLogsParams = {
-  workspaceId?: number;
+  workspaceId: number;
   obligationId?: number;
   limit?: number;
 };

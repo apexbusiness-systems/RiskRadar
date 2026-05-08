@@ -7,6 +7,6 @@
  */
 
 export type GetUpcomingObligationsParams = {
-  workspaceId?: number;
+  workspaceId: number;
   days?: number;
 };

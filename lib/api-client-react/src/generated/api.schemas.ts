@@ -25,6 +25,26 @@ export interface DashboardMetrics {
   byCategory: CategoryCount[];
 }
 
+export interface DashboardRiskItem {
+  id: number;
+  title: string;
+  dueDate: string;
+  category: string;
+}
+
+export interface DashboardRisk {
+  riskScore: number;
+  totalActive: number;
+  overdueCount: number;
+  criticalCount: number;
+  missingOwnerCount: number;
+  missingBackupCount: number;
+  noReminderCount: number;
+  overdueItems: DashboardRiskItem[];
+  criticalItems: DashboardRiskItem[];
+  noReminderItems: DashboardRiskItem[];
+}
+
 export interface Workspace {
   id: number;
   name: string;
@@ -272,16 +292,20 @@ export interface CsvImportResult {
 }
 
 export type GetDashboardMetricsParams = {
-  workspaceId?: number;
+  workspaceId: number;
+};
+
+export type GetDashboardRiskParams = {
+  workspaceId: number;
 };
 
 export type GetUpcomingObligationsParams = {
-  workspaceId?: number;
+  workspaceId: number;
   days?: number;
 };
 
 export type ListObligationsParams = {
-  workspaceId?: number;
+  workspaceId: number;
   status?: ListObligationsStatus;
   category?: string;
   search?: string;
@@ -301,7 +325,7 @@ export const ListObligationsStatus = {
 } as const;
 
 export type ListDeliveryHistoryParams = {
-  workspaceId?: number;
+  workspaceId: number;
   obligationId?: number;
   status?: ListDeliveryHistoryStatus;
   limit?: number;
@@ -317,7 +341,7 @@ export const ListDeliveryHistoryStatus = {
 } as const;
 
 export type ListAuditLogsParams = {
-  workspaceId?: number;
+  workspaceId: number;
   obligationId?: number;
   limit?: number;
 };

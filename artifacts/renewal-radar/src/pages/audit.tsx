@@ -4,6 +4,7 @@ import { useListAuditLogs, getListAuditLogsQueryKey } from "@workspace/api-clien
 import { format } from "date-fns";
 import { BookOpen, Plus, Edit2, Trash2, CheckCircle2, AlertTriangle, Upload, Bell, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
   "obligation.created":   { label: "Created",          color: "text-blue-700",    bg: "bg-blue-50 border-blue-200",    icon: Plus },
@@ -19,9 +20,15 @@ const ACTION_CONFIG: Record<string, { label: string; color: string; bg: string; 
 const FALLBACK = { label: "Action", color: "text-slate-600", bg: "bg-slate-100 border-slate-200", icon: BookOpen };
 
 export default function AuditPage() {
+  const { workspaceId } = useWorkspace();
   const auditQuery = useListAuditLogs(
-    { limit: 100 },
-    { query: { queryKey: getListAuditLogsQueryKey({ limit: 100 }) } },
+    { workspaceId: workspaceId ?? 0, limit: 100 },
+    {
+      query: {
+        queryKey: getListAuditLogsQueryKey({ workspaceId: workspaceId ?? 0, limit: 100 }),
+        enabled: !!workspaceId,
+      },
+    },
   );
   const logs = auditQuery.data ?? [];
 
