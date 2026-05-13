@@ -50,6 +50,14 @@ Set these to enable outbound reminder emails. Without them, reminders are logged
 
 ## Setup & Quickstart
 
+### Local `.env` Template
+
+Use `.env.example` as the canonical template for local/dev environment setup:
+
+```bash
+cp .env.example .env
+```
+
 ### On Replit
 
 1. Click **Run** — the database and Clerk auth are auto-provisioned
