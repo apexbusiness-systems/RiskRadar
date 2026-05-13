@@ -10,7 +10,7 @@ for (const key of REQUIRED_ENV) {
       key === "DATABASE_URL" && process.env.SUPABASE_URL
         ? " Supabase detected: set DATABASE_URL to the Supabase Postgres connection string (pooler URI)."
         : "";
-    logger.error(`Missing required environment variable: ${key}.${supabaseHint}`);
+    logger.error(`Missing required environment variable: ${key}.${supabaseHint}`.replace("..", "."));
     process.exit(1);
   }
 }

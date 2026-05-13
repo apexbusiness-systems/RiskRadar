@@ -3,9 +3,8 @@ import { db } from "@workspace/db";
 import { reminderRulesTable, auditLogsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAuth";
-import { AuthzError, loadObligationForUser } from "../lib/authz";
+import { AuthzError, HttpError, loadObligationForUser, parsePositiveInt } from "../lib/authz";
 import type { Request, Response } from "express";
-import { HttpError, loadObligationForUser, parsePositiveInt } from "../lib/authz";
 
 const router = Router({ mergeParams: true });
 
@@ -13,14 +12,13 @@ function param(req: Request, key: string): string { const v = req.params[key]; r
 
 router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
-    const obligationId = parseInt(param(req, "obligationId"), 10);
-    if (!Number.isInteger(obligationId)) return void res.status(400).json({ error: "Invalid obligationId" });
+    const obligationId = parsePositiveInt(param(req, "obligationId"), "obligationId");
     await loadObligationForUser(obligationId, (req as AuthenticatedRequest).userId);
     const rules = await db.select().from(reminderRulesTable).where(eq(reminderRulesTable.obligationId, obligationId));
     res.json(rules);
     return;
   } catch (err) {
-    if (err instanceof AuthzError) return void res.status(err.status).json({ error: err.message });
+    if (err instanceof AuthzError || err instanceof HttpError) return void res.status(err.status).json({ error: err.message });
     req.log.error({ err }, "listReminderRules error");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -29,8 +27,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 router.post("/", requireAuth, async (req: Request, res: Response) => {
   const userId = (req as AuthenticatedRequest).userId;
   try {
-    const obligationId = parseInt(param(req, "obligationId"), 10);
-    if (!Number.isInteger(obligationId)) return void res.status(400).json({ error: "Invalid obligationId" });
+    const obligationId = parsePositiveInt(param(req, "obligationId"), "obligationId");
     const obligation = await loadObligationForUser(obligationId, userId);
     const { daysBefore, channel, recipientType, customEmail, isActive } = req.body;
     if (daysBefore === undefined || !channel || !recipientType) return void res.status(400).json({ error: "daysBefore, channel, recipientType are required" });
@@ -40,7 +37,7 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
     res.status(201).json(rule);
     return;
   } catch (err) {
-    if (err instanceof AuthzError) return void res.status(err.status).json({ error: err.message });
+    if (err instanceof AuthzError || err instanceof HttpError) return void res.status(err.status).json({ error: err.message });
     req.log.error({ err }, "createReminderRule error");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -48,9 +45,8 @@ router.post("/", requireAuth, async (req: Request, res: Response) => {
 
 router.put("/:ruleId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const ruleId = parseInt(param(req, "ruleId"), 10);
-    const obligationId = parseInt(param(req, "obligationId"), 10);
-    if (!Number.isInteger(ruleId) || !Number.isInteger(obligationId)) return void res.status(400).json({ error: "Invalid route params" });
+    const ruleId = parsePositiveInt(param(req, "ruleId"), "ruleId");
+    const obligationId = parsePositiveInt(param(req, "obligationId"), "obligationId");
     await loadObligationForUser(obligationId, (req as AuthenticatedRequest).userId);
     const { daysBefore, channel, recipientType, customEmail, isActive } = req.body;
 
@@ -59,7 +55,7 @@ router.put("/:ruleId", requireAuth, async (req: Request, res: Response) => {
     res.json(rule);
     return;
   } catch (err) {
-    if (err instanceof AuthzError) return void res.status(err.status).json({ error: err.message });
+    if (err instanceof AuthzError || err instanceof HttpError) return void res.status(err.status).json({ error: err.message });
     req.log.error({ err }, "updateReminderRule error");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -67,15 +63,14 @@ router.put("/:ruleId", requireAuth, async (req: Request, res: Response) => {
 
 router.delete("/:ruleId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const ruleId = parseInt(param(req, "ruleId"), 10);
-    const obligationId = parseInt(param(req, "obligationId"), 10);
-    if (!Number.isInteger(ruleId) || !Number.isInteger(obligationId)) return void res.status(400).json({ error: "Invalid route params" });
+    const ruleId = parsePositiveInt(param(req, "ruleId"), "ruleId");
+    const obligationId = parsePositiveInt(param(req, "obligationId"), "obligationId");
     await loadObligationForUser(obligationId, (req as AuthenticatedRequest).userId);
     await db.delete(reminderRulesTable).where(and(eq(reminderRulesTable.id, ruleId), eq(reminderRulesTable.obligationId, obligationId)));
     res.status(204).send();
     return;
   } catch (err) {
-    if (err instanceof AuthzError) return void res.status(err.status).json({ error: err.message });
+    if (err instanceof AuthzError || err instanceof HttpError) return void res.status(err.status).json({ error: err.message });
     req.log.error({ err }, "deleteReminderRule error");
     res.status(500).json({ error: "Internal server error" });
   }

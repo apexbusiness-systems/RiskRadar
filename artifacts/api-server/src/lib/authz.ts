@@ -10,6 +10,20 @@ export class AuthzError extends Error {
   }
 }
 
+export class HttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
+
+export function parsePositiveInt(rawValue: unknown, fieldName: string): number {
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new HttpError(400, `${fieldName} must be a positive integer`);
+  }
+  return parsed;
+}
+
 export async function assertWorkspaceMember(workspaceId: number, clerkUserId: string) {
   const [member] = await db.select().from(workspaceMembersTable).where(and(eq(workspaceMembersTable.workspaceId, workspaceId), eq(workspaceMembersTable.clerkUserId, clerkUserId))).limit(1);
   if (!member) throw new AuthzError(403, "Forbidden");
@@ -38,3 +52,5 @@ export async function scopeAuditLogQuery(workspaceId: number, clerkUserId: strin
   await assertWorkspaceMember(workspaceId, clerkUserId);
   return [eq(auditLogsTable.workspaceId, workspaceId)];
 }
+
+export { obligationsTable, workspaceMembersTable, deliveryHistoryTable, auditLogsTable };
