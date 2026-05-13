@@ -1,6 +1,135 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { RadarMark } from "@/components/risk-radar/Chrome";
 import { BtnAmber, BtnGhost } from "@/components/risk-radar/Chrome";
+
+/* ── Orbiting category labels (DOM elements, not canvas) ── */
+interface OrbitalNode {
+  label: string;
+  count: string;
+  color: string;
+  rx: number;        // horizontal orbit radius (fraction of container)
+  ry: number;        // vertical orbit radius (fraction of container)
+  speed: number;    // radians per ms
+  phase: number;     // starting angle (radians)
+  direction: 1 | -1; // clockwise or counter-clockwise
+  size: "lg" | "sm"; // visual size variant
+}
+
+const ORBITAL_NODES: OrbitalNode[] = [
+  { label: "CONTRACTS",    count: "12 Expiring", color: "#FF6B35", rx: 0.18, ry: 0.14, speed: 0.00028, phase: 0.0,           direction: 1,  size: "lg" },
+  { label: "PERMITS",      count: "5 Expiring",   color: "#F5A623", rx: 0.22, ry: 0.18, speed: 0.00022, phase: Math.PI * 0.33, direction: -1, size: "lg" },
+  { label: "INSURANCE",    count: "3 Renewals",   color: "#00C8F0", rx: 0.26, ry: 0.22, speed: 0.00018, phase: Math.PI * 0.67, direction: 1,  size: "lg" },
+  { label: "COMPLIANCE",   count: "2 Overdue",    color: "#00E676", rx: 0.30, ry: 0.25, speed: 0.00015, phase: Math.PI * 1.0,  direction: -1, size: "lg" },
+  { label: "DEADLINES",    count: "9 Due Soon",   color: "#F5A623", rx: 0.15, ry: 0.11, speed: 0.00032, phase: Math.PI * 1.33, direction: 1,  size: "sm" },
+  { label: "EXPOSURE",     count: "7 High Risk",  color: "#FF4040", rx: 0.34, ry: 0.28, speed: 0.00012, phase: Math.PI * 1.67, direction: -1, size: "sm" },
+];
+
+function OrbitingLabels() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const anglesRef = useRef<number[]>(ORBITAL_NODES.map((n) => n.phase));
+  const rafRef = useRef<number>(0);
+
+  const setNodeRef = useCallback((idx: number, el: HTMLDivElement | null) => {
+    nodeRefs.current[idx] = el;
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let last = 0;
+    const tick = (t: number) => {
+      if (!last) last = t;
+      const dt = t - last;
+      last = t;
+
+      const W = container.offsetWidth;
+      const H = container.offsetHeight;
+      const cx = W * 0.64;  // orbit center matches radar center
+      const cy = H * 0.5;
+
+      ORBITAL_NODES.forEach((node, i) => {
+        anglesRef.current[i] += node.speed * node.direction * dt;
+        const angle = anglesRef.current[i];
+        const x = cx + Math.cos(angle) * node.rx * W;
+        const y = cy + Math.sin(angle) * node.ry * H;
+
+        const el = nodeRefs.current[i];
+        if (el) {
+          el.style.transform = `translate(${x}px, ${y}px)`;
+        }
+      });
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ zIndex: 2 }}
+    >
+      {ORBITAL_NODES.map((node, i) => (
+        <div
+          key={node.label}
+          ref={(el) => setNodeRef(i, el)}
+          className="absolute top-0 left-0 pointer-events-auto"
+          style={{
+            willChange: "transform",
+            translate: "-50% -50%",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(10,14,24,.88)",
+              border: `1px solid ${node.color}44`,
+              borderRadius: node.size === "lg" ? 10 : 7,
+              padding: node.size === "lg" ? "8px 14px" : "6px 10px",
+              boxShadow: `0 0 20px ${node.color}15, 0 4px 12px rgba(0,0,0,.5)`,
+              backdropFilter: "blur(8px)",
+              animation: `stagger-in .5s ease both`,
+              animationDelay: `${i * 0.08}s`,
+            }}
+          >
+            {/* Live dot */}
+            <div className="flex items-center gap-2 mb-0.5">
+              <span
+                className="w-[5px] h-[5px] rounded-full inline-block"
+                style={{
+                  background: node.color,
+                  boxShadow: `0 0 8px ${node.color}55`,
+                  animation: "pulse-led 2s ease-in-out infinite",
+                }}
+              />
+              <span
+                className="font-bold uppercase tracking-[0.12em]"
+                style={{
+                  color: node.color,
+                  fontSize: node.size === "lg" ? "10.5px" : "9px",
+                }}
+              >
+                {node.label}
+              </span>
+            </div>
+            {node.size === "lg" && (
+              <div
+                className="text-[12px] font-semibold pl-[13px]"
+                style={{ color: "#8898A8" }}
+              >
+                {node.count}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ── Hero canvas overlay with particles + sweep ── */
 function HeroOverlay() {
@@ -33,16 +162,6 @@ function HeroOverlay() {
       color:
         Math.random() > 0.6 ? "#F5A623" : Math.random() > 0.5 ? "#00C8F0" : "#FFFFFF",
     }));
-
-    // Category nodes for glow
-    const nodes = [
-      { x: 0.72, y: 0.18, color: "#FF6B35" },
-      { x: 0.55, y: 0.26, color: "#F5A623" },
-      { x: 0.88, y: 0.44, color: "#00C8F0" },
-      { x: 0.84, y: 0.65, color: "#00E676" },
-      { x: 0.46, y: 0.62, color: "#F5A623" },
-      { x: 0.52, y: 0.78, color: "#FF4040" },
-    ];
 
     let last = 0;
     const tick = (t: number) => {
@@ -80,6 +199,16 @@ function HeroOverlay() {
       ctx.stroke();
       ctx.restore();
 
+      // Concentric ring ghosts (matches orbital orbits)
+      [0.18, 0.22, 0.26, 0.30, 0.15, 0.34].forEach((rx, i) => {
+        const ry = [0.14, 0.18, 0.22, 0.25, 0.11, 0.28][i];
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * W, ry * H, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255,255,255,.025)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      });
+
       // Particles
       particles.forEach((p) => {
         p.x += p.vx * dt;
@@ -95,30 +224,6 @@ function HeroOverlay() {
         ctx.arc(px, py, p.r, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.alpha * flicker;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      });
-
-      // Node breathing glows
-      nodes.forEach((n, i) => {
-        const nx = n.x * W;
-        const ny = n.y * H;
-        const pulse = 0.5 + 0.5 * Math.sin(t * 0.0018 + i * 1.1);
-        const r = 6 + pulse * 4;
-        const grd = ctx.createRadialGradient(nx, ny, 0, nx, ny, r * 3);
-        grd.addColorStop(0, n.color + "55");
-        grd.addColorStop(0.5, n.color + "22");
-        grd.addColorStop(1, n.color + "00");
-        ctx.beginPath();
-        ctx.arc(nx, ny, r * 3, 0, Math.PI * 2);
-        ctx.fillStyle = grd;
-        ctx.globalAlpha = 0.6 + pulse * 0.4;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.beginPath();
-        ctx.arc(nx, ny, 3 + pulse * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = n.color;
-        ctx.globalAlpha = 0.7 + pulse * 0.3;
         ctx.fill();
         ctx.globalAlpha = 1;
       });
@@ -181,6 +286,7 @@ export default function LandingPage({ onEnter }: { onEnter?: () => void }) {
           }}
         />
         <HeroOverlay />
+        <OrbitingLabels />
 
         <div className="relative z-[2] px-20 py-20 max-w-[640px]">
           <div className="flex items-center gap-3.5 mb-8">
@@ -198,23 +304,7 @@ export default function LandingPage({ onEnter }: { onEnter?: () => void }) {
           </p>
           <div className="flex gap-3 flex-wrap">
             <BtnAmber onClick={onEnter}>Open Command Center →</BtnAmber>
-            <BtnGhost>View Risk Register</BtnGhost>
-          </div>
-          <div className="flex gap-5 flex-wrap mt-8 pt-7 border-t border-[rgba(255,255,255,.07)]">
-            {["Contracts", "Permits", "Insurance", "Compliance", "Renewals", "Deadlines"].map(
-              (t, i) => (
-                <div key={i} className="flex items-center gap-2 text-[12.5px] font-semibold text-[#4A5568] uppercase tracking-[0.1em]">
-                  <span
-                    className="w-[6px] h-[6px] rounded-full"
-                    style={{
-                      background: "#F5A623",
-                      boxShadow: "0 0 8px rgba(245,166,35,.18)",
-                    }}
-                  />
-                  {t}
-                </div>
-              )
-            )}
+            <BtnGhost>View Due Register</BtnGhost>
           </div>
         </div>
       </div>
@@ -311,8 +401,8 @@ export default function LandingPage({ onEnter }: { onEnter?: () => void }) {
             Due<span className="text-[#F5A623]">Radar</span>
           </h2>
           <p className="text-[17px] text-[#8898A8] mb-9 leading-relaxed">
-            Your business has deadlines that can cost you money, compliance, or leverage. Risk
-            Radar shows the most dangerous one first.
+            Your business has deadlines that can cost you money, compliance, or leverage. DueRadar
+            shows the most dangerous one first.
           </p>
           <BtnAmber onClick={onEnter}>Open Command Center →</BtnAmber>
         </div>
