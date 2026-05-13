@@ -1,4 +1,4 @@
-# Renewal Radar
+# RiskRadar
 
 An SMB obligation and deadline tracker SaaS. Track licenses, insurance, contracts, and other recurring obligations. Get reminded before they expire.
 
@@ -26,6 +26,14 @@ An SMB obligation and deadline tracker SaaS. Track licenses, insurance, contract
 | `CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (frontend) |
 
+### Supabase Backend Configuration (Optional)
+
+RiskRadar does not require the Supabase SDK in the API server. It connects to PostgreSQL via `DATABASE_URL`, so you can attach a Supabase project by setting `DATABASE_URL` to the Supabase Postgres connection string (Transaction/Session pooler URL recommended).
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Supabase Postgres connection string (acts as the runtime backend for API + Drizzle) |
+
 ### Optional — Email Reminders
 
 Set these to enable outbound reminder emails. Without them, reminders are logged but not sent.
@@ -41,6 +49,14 @@ Set these to enable outbound reminder emails. Without them, reminders are logged
 | `DEMO_DATA_MODE` | Seed synthetic demo identities (`true` default, set `false` to use real sign-in email in seed data) | `true` |
 
 ## Setup & Quickstart
+
+### Local `.env` Template
+
+Use `.env.example` as the canonical template for local/dev environment setup:
+
+```bash
+cp .env.example .env
+```
 
 ### On Replit
 

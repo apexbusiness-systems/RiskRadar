@@ -160,9 +160,9 @@ Days Until Due: ${daysUntilDue}
 ${obligation.ownerEmail ? `Owner:        ${obligation.ownerEmail}` : ""}
 ${obligation.notes ? `\nNotes: ${obligation.notes}` : ""}
 
-Please log in to Renewal Radar to take action.
+Please log in to RiskRadar to take action.
 
-— Renewal Radar`.trim();
+— RiskRadar`.trim();
 
       const uniqueRecipients = [...new Set(recipients)].filter(Boolean);
 

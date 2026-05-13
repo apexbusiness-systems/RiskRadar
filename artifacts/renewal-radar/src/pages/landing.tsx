@@ -259,7 +259,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/40 relative">
               <RadarIcon className="w-4 h-4 text-slate-900" />
             </div>
-            <span className="font-bold text-white text-lg tracking-tight">Renewal Radar</span>
+            <span className="font-bold text-white text-lg tracking-tight">RiskRadar</span>
           </div>
           <div className="hidden md:flex items-center gap-7 text-sm text-slate-500">
             <a href="#problem" className="hover:text-white transition-colors">The Problem</a>
@@ -309,7 +309,7 @@ export default function LandingPage() {
                 <span className="text-slate-400 text-4xl lg:text-5xl font-bold">Not a spreadsheet.</span>
               </h1>
               <p className="text-lg text-slate-400 leading-relaxed mb-8 max-w-lg" style={{ fontFamily: "'Inter', sans-serif" }}>
-                Renewal Radar tracks every license, contract, insurance policy, and compliance deadline — then fires escalating reminders so your team never misses a renewal again.
+                RiskRadar tracks every license, contract, insurance policy, and compliance deadline — then fires escalating reminders so your team never misses a renewal again.
               </p>
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <Link href="/sign-up">
@@ -410,7 +410,7 @@ export default function LandingPage() {
                   <AlertTriangle className="w-4.5 h-4.5 text-red-400" />
                 </div>
                 <div>
-                  <p className="font-bold text-red-300 text-sm">Before Renewal Radar</p>
+                  <p className="font-bold text-red-300 text-sm">Before RiskRadar</p>
                   <p className="text-xs text-red-400/60" style={{ fontFamily: "'Inter', sans-serif" }}>The spreadsheet graveyard</p>
                 </div>
               </div>
@@ -437,7 +437,7 @@ export default function LandingPage() {
                   <RadarIcon className="w-4.5 h-4.5 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="font-bold text-emerald-300 text-sm">After Renewal Radar</p>
+                  <p className="font-bold text-emerald-300 text-sm">After RiskRadar</p>
                   <p className="text-xs text-emerald-400/60" style={{ fontFamily: "'Inter', sans-serif" }}>Your live renewal cockpit</p>
                 </div>
               </div>
@@ -737,7 +737,7 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { quote: "We had 40+ licenses across 3 states. Two expired before we found Renewal Radar. Haven't missed one since.", author: "Sarah M.", role: "Operations Director, Regional Retailer" },
+              { quote: "We had 40+ licenses across 3 states. Two expired before we found RiskRadar. Haven't missed one since.", author: "Sarah M.", role: "Operations Director, Regional Retailer" },
               { quote: "The CSV import wizard saved our team days of data entry. Mapped 200 obligations in about 10 minutes.", author: "James T.", role: "Compliance Lead, Property Management Co." },
               { quote: "Finally a tool that doesn't assume we have a compliance department. Built for how we actually work.", author: "Dana K.", role: "COO, Logistics Startup" },
             ].map((t) => (
@@ -778,7 +778,7 @@ export default function LandingPage() {
             </span>
           </h2>
           <p className="text-lg text-slate-400 mb-10 leading-relaxed max-w-xl mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
-            Sign up, get demo data instantly, and see exactly how Renewal Radar would look for your operations team — before you import a single obligation.
+            Sign up, get demo data instantly, and see exactly how RiskRadar would look for your operations team — before you import a single obligation.
           </p>
           <Link href="/sign-up">
             <Button size="lg" className="bg-amber-500 hover:bg-amber-400 text-slate-900 font-black px-12 h-14 text-lg gap-2 shadow-2xl shadow-amber-500/25 rounded-xl" data-testid="button-bottom-cta">
@@ -811,7 +811,7 @@ export default function LandingPage() {
             <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center">
               <RadarIcon className="w-3.5 h-3.5 text-slate-900" />
             </div>
-            <span className="font-bold text-white text-sm">Renewal Radar</span>
+            <span className="font-bold text-white text-sm">RiskRadar</span>
           </div>
           <div className="flex items-center gap-7 text-sm text-slate-500">
             <Link href="/sign-in"><span className="hover:text-white transition-colors cursor-pointer">Sign in</span></Link>
