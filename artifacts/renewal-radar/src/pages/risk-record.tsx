@@ -116,19 +116,19 @@ export default function RiskRecordPage() {
                   className="w-2 h-2 rounded-full mt-[3px]"
                   style={{
                     background:
-                      e.lvl === "warn"
+                      (e.lvl as string) === "warn"
                         ? "#F5A623"
-                        : e.lvl === "crit"
+                        : (e.lvl as string) === "crit"
                           ? "#FF4040"
-                          : e.lvl === "safe"
+                          : (e.lvl as string) === "safe"
                             ? "#00E676"
                             : "#151D30",
                     boxShadow:
-                      e.lvl === "warn"
+                      (e.lvl as string) === "warn"
                         ? "0 0 6px rgba(245,166,35,.18)"
-                        : e.lvl === "crit"
+                        : (e.lvl as string) === "crit"
                           ? "0 0 6px rgba(255,64,64,.15)"
-                          : e.lvl === "safe"
+                          : (e.lvl as string) === "safe"
                             ? "0 0 6px rgba(0,230,118,.13)"
                             : "none",
                     border: (e.lvl as string) ? "none" : "1px solid rgba(255,255,255,.07)",
