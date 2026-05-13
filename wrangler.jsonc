@@ -1,0 +1,7 @@
+{
+  "name": "dueradar",
+  "compatibility_date": "2026-05-13",
+  "assets": {
+    "directory": "./artifacts/renewal-radar/dist/public"
+  }
+}
