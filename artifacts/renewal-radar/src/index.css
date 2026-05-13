@@ -1,3 +1,9 @@
+/* ══════════════════════════════════════════════════════════
+   RiskRadar — Orbital Command System
+   Visual anchor: deep obsidian · amber beam · cyan orbital rings
+   Space Grotesk globally · tabular numerals on metrics
+══════════════════════════════════════════════════════════ */
+
 @layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
 @import "@clerk/themes/shadcn.css";
@@ -68,99 +74,120 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE */
+/* ═══════════ DARK OBSIDIAN THEME (default, always-on) ═══════════ */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(255,255,255, .10);
+  --badge-outline: rgba(255,255,255, .05);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255,255,255, .04);
+  --elevate-2: rgba(255,255,255, .09);
 
-  /* Automatic computation of border around primary / danger buttons */
-  --opaque-button-border-intensity: -8; /* In terms of percentages */
+  /* ── Backgrounds ── */
+  --rr-bg:          #05070B;
+  --rr-surface:     #0A0E18;
+  --rr-surface-2:   #0F1524;
+  --rr-surface-3:   #151D30;
+  --rr-glass:       rgba(255,255,255,.04);
+  --rr-glass-2:     rgba(255,255,255,.07);
 
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  /* ── Amber — primary action / radar beam ── */
+  --rr-amber:       #F5A623;
+  --rr-amber-2:     #D4850A;
+  --rr-amber-glow:  rgba(245,166,35,.18);
+  --rr-amber-edge:  rgba(245,166,35,.35);
+  --rr-amber-text:  #FFB84D;
 
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
-  
-  --border: 214 32% 91%;
-  
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --card-border: 214 32% 91%;
-  
-  --sidebar: 222 47% 11%;
+  /* ── Cyan — orbital rings / system intelligence ── */
+  --rr-cyan:        #00C8F0;
+  --rr-cyan-2:      #0096C0;
+  --rr-cyan-glow:   rgba(0,200,240,.12);
+  --rr-cyan-edge:   rgba(0,200,240,.28);
+
+  /* ── Status colors ── */
+  --rr-red:         #FF4040;
+  --rr-red-glow:    rgba(255,64,64,.15);
+  --rr-orange:      #FF8C00;
+  --rr-green:       #00E676;
+  --rr-green-glow:  rgba(0,230,118,.13);
+  --rr-green-2:     #00B85A;
+
+  /* ── Text ── */
+  --rr-fg:          #F0F4F8;
+  --rr-fg-2:        #8898A8;
+  --rr-fg-3:        #4A5568;
+
+  /* ── Lines ── */
+  --rr-line:        rgba(255,255,255,.07);
+  --rr-line-cyan:   rgba(0,200,240,.14);
+  --rr-line-amber:  rgba(245,166,35,.2);
+
+  /* ── Shadows ── */
+  --rr-shadow:      0 4px 20px rgba(0,0,0,.5);
+  --rr-shadow-amber:0 0 30px rgba(245,166,35,.2), 0 4px 20px rgba(0,0,0,.5);
+  --rr-shadow-cyan: 0 0 30px rgba(0,200,240,.15), 0 4px 20px rgba(0,0,0,.5);
+
+  /* ── Shape ── */
+  --rr-radius-sm: 5px;
+  --rr-radius:    9px;
+  --rr-radius-lg: 13px;
+  --rr-radius-xl: 18px;
+
+  /* ── Tailwind compatibility (dark mode always-on) ── */
+  --background: 222 47% 3%;
+  --foreground: 210 40% 98%;
+  --border: 217 33% 17%;
+  --card: 222 47% 4%;
+  --card-foreground: 210 40% 98%;
+  --card-border: 217 33% 17%;
+  --sidebar: 222 47% 2%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-primary: 210 40% 98%;
+  --sidebar-border: 217 33% 13%;
+  --sidebar-primary: 38 92% 50%;
   --sidebar-primary-foreground: 222 47% 11%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-accent: rgba(245,166,35,.18);
+  --sidebar-accent-foreground: 38 92% 70%;
   --sidebar-ring: 217 33% 17%;
-  
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --popover-border: 214 32% 91%;
-  
-  --primary: 222 47% 11%; /* Deep Navy / Slate */
-  --primary-foreground: 210 40% 98%;
-  
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11.2%;
-  
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  
-  --accent: 38 92% 50%; /* Amber accent */
+  --popover: 222 47% 4%;
+  --popover-foreground: 210 40% 98%;
+  --popover-border: 217 33% 17%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 38 92% 50%;
   --accent-foreground: 222 47% 11%;
-  
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-  
-  --input: 214 32% 91%;
-  --ring: 222 47% 11%;
-  --chart-1: 222 47% 11%;
+  --input: 217 33% 17%;
+  --ring: 38 92% 50%;
+  --chart-1: 210 40% 98%;
   --chart-2: 38 92% 50%;
-  --chart-3: 210 40% 96.1%;
-  --chart-4: 215.4 16.3% 46.9%;
+  --chart-3: 217 33% 17%;
+  --chart-4: 215 20.2% 65.1%;
   --chart-5: 0 84.2% 60.2%;
 
-  --app-font-sans: 'Inter', sans-serif;
+  --app-font-sans: 'Space Grotesk', 'Inter', sans-serif;
   --app-font-display: 'Space Grotesk', 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: .5rem; /* 8px */
-  
+  --app-font-mono: 'Space Mono', Menlo, monospace;
+  --radius: .5625rem; /* 9px matching --rr-radius */
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
-  /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
-
-  /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --sidebar-accent-border: hsl(var(--sidebar-accent));
   --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --primary-border: hsl(var(--primary));
   --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --secondary-border: hsl(var(--secondary));
   --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --muted-border: hsl(var(--muted));
   --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --accent-border: hsl(var(--accent));
   --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-
-  /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
@@ -168,66 +195,115 @@
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
-
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
-
-  /* Backgrounds applied on top of other backgrounds when hovered/active */
+  --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 222 47% 11%;
+  --background: 222 47% 3%;
   --foreground: 210 40% 98%;
-  
   --border: 217 33% 17%;
-  
-  --card: 222 47% 11%;
+  --card: 222 47% 4%;
   --card-foreground: 210 40% 98%;
   --card-border: 217 33% 17%;
-  
-  --sidebar: 222 47% 11%;
+  --sidebar: 222 47% 2%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-border: 217 33% 17%;
-  --sidebar-primary: 210 40% 98%;
+  --sidebar-border: 217 33% 13%;
+  --sidebar-primary: 38 92% 50%;
   --sidebar-primary-foreground: 222 47% 11%;
-  --sidebar-accent: 217 33% 17%;
-  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-accent: rgba(245,166,35,.18);
+  --sidebar-accent-foreground: 38 92% 70%;
   --sidebar-ring: 217 33% 17%;
-  
-  --popover: 222 47% 11%;
+  --popover: 222 47% 4%;
   --popover-foreground: 210 40% 98%;
   --popover-border: 217 33% 17%;
-  
   --primary: 210 40% 98%;
   --primary-foreground: 222 47% 11%;
-  
   --secondary: 217 33% 17%;
   --secondary-foreground: 210 40% 98%;
-  
   --muted: 217 33% 17%;
   --muted-foreground: 215 20.2% 65.1%;
-  
   --accent: 38 92% 50%;
   --accent-foreground: 222 47% 11%;
-  
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-  
   --input: 217 33% 17%;
-  --ring: 210 40% 98%;
+  --ring: 38 92% 50%;
   --chart-1: 210 40% 98%;
   --chart-2: 38 92% 50%;
   --chart-3: 217 33% 17%;
   --chart-4: 215 20.2% 65.1%;
-  --chart-5: 0 62.8% 30.6%;
+  --chart-5: 0 84.2% 60.2%;
 }
 
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
-
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    background: #05070B;
+    color: #F0F4F8;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+}
+
+/* ══════════ CUSTOM SCROLLBAR ══════════ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ══════════ ANIMATIONS ══════════ */
+@keyframes pulse-led {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes node-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .6; transform: scale(1.15); }
+}
+@keyframes orbit-glow {
+  0%, 100% { opacity: .7; }
+  50%       { opacity: 1; }
+}
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fill-bar {
+  from { width: 0; }
+}
+@keyframes counter-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ping-ring {
+  0% { transform: scale(.5); opacity: .9; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(245,166,35,.4); }
+  70% { box-shadow: 0 0 0 10px rgba(245,166,35,0); }
+  100% { box-shadow: 0 0 0 0 rgba(245,166,35,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
   }
 }
 
@@ -235,7 +311,6 @@
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }
-
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));
