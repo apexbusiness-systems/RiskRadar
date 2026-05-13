@@ -1,4 +1,4 @@
-# Renewal Radar
+# RiskRadar
 
 An SMB obligation and deadline tracker SaaS built with a full-stack monorepo.
 

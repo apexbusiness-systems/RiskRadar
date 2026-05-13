@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Renewal Radar"
+title = "RiskRadar"
 version = "1.0.0"
 id = "artifacts/renewal-radar"
 router = "path"

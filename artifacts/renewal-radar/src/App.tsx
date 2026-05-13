@@ -162,7 +162,7 @@ function AppRouter() {
       signUpUrl={`${basePath}/sign-up`}
       localization={{
         signIn: {
-          start: { title: "Welcome back", subtitle: "Sign in to Renewal Radar" },
+          start: { title: "Welcome back", subtitle: "Sign in to RiskRadar" },
         },
         signUp: {
           start: { title: "Get started", subtitle: "Track your obligations" },
