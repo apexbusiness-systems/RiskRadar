@@ -4,13 +4,18 @@ import { startReminderScheduler } from "./lib/reminderProcessor";
 
 // ── Startup environment validation ──────────────────────────────────────────
 const REQUIRED_ENV = ["PORT", "DATABASE_URL", "CLERK_SECRET_KEY"] as const;
+
+function missingEnvMessage(key: (typeof REQUIRED_ENV)[number]): string {
+  if (key === "DATABASE_URL" && process.env.SUPABASE_URL) {
+    // Non-obvious: Supabase URL alone is insufficient; the app needs a Postgres DSN.
+    return `Missing required environment variable: ${key}. Supabase detected: set DATABASE_URL to the Supabase Postgres connection string (pooler URI).`;
+  }
+  return `Missing required environment variable: ${key}`;
+}
+
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
-    const supabaseHint =
-      key === "DATABASE_URL" && process.env.SUPABASE_URL
-        ? " Supabase detected: set DATABASE_URL to the Supabase Postgres connection string (pooler URI)."
-        : "";
-    logger.error(`Missing required environment variable: ${key}.${supabaseHint}`.replace("..", "."));
+    logger.error(missingEnvMessage(key));
     process.exit(1);
   }
 }
