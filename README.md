@@ -34,6 +34,8 @@ RiskRadar does not require the Supabase SDK in the API server. It connects to Po
 |---|---|
 | `DATABASE_URL` | Supabase Postgres connection string (acts as the runtime backend for API + Drizzle) |
 
+No Supabase management token is required for normal RiskRadar runtime paths; database access is through `DATABASE_URL` only.
+
 ### Optional — Email Reminders
 
 Set these to enable outbound reminder emails. Without them, reminders are logged but not sent.
