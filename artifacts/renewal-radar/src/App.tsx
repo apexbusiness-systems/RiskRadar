@@ -7,21 +7,24 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { queryClient } from "@/lib/queryClient";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { Sidebar, StatusBar } from "@/components/risk-radar/Chrome";
 import LandingPage from "@/pages/landing";
-import DashboardPage from "@/pages/dashboard";
-import ObligationsPage from "@/pages/obligations";
-import ObligationDetailPage from "@/pages/obligation-detail";
-import ObligationNewPage from "@/pages/obligation-new";
-import ImportPage from "@/pages/import";
+import CommandCenterPage from "@/pages/command-center";
+import RiskRegisterPage from "@/pages/risk-register";
+import RiskRecordPage from "@/pages/risk-record";
+import RiskIntakePage from "@/pages/risk-intake";
 import DeliveryPage from "@/pages/delivery";
 import AuditPage from "@/pages/audit";
 import WorkspacePage from "@/pages/workspace";
 import NotFound from "@/pages/not-found";
+import ObligationNewPage from "@/pages/obligation-new";
+import ObligationsPage from "@/pages/obligations";
+import ObligationDetailPage from "@/pages/obligation-detail";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
 
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+const basePath = import.meta.env.BASE_URL.replace(/"/, "");
 
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
@@ -38,41 +41,41 @@ const clerkAppearance = {
     logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
   },
   variables: {
-    colorPrimary: "#0f172a",
-    colorForeground: "#0f172a",
-    colorMutedForeground: "#64748b",
-    colorDanger: "#ef4444",
-    colorBackground: "#ffffff",
-    colorInput: "#f1f5f9",
-    colorInputForeground: "#0f172a",
-    colorNeutral: "#e2e8f0",
-    fontFamily: "Inter, sans-serif",
-    borderRadius: "0.5rem",
+    colorPrimary: "#F5A623",
+    colorForeground: "#F0F4F8",
+    colorMutedForeground: "#4A5568",
+    colorDanger: "#FF4040",
+    colorBackground: "#0A0E18",
+    colorInput: "#151D30",
+    colorInputForeground: "#F0F4F8",
+    colorNeutral: "#0F1524",
+    fontFamily: "Space Grotesk, sans-serif",
+    borderRadius: "0.5625rem",
   },
   elements: {
     rootBox: "w-full flex justify-center",
-    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-lg",
+    cardBox: "rounded-2xl w-[440px] max-w-full overflow-hidden shadow-lg",
     card: "!shadow-none !border-0 !bg-transparent !rounded-none",
     footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: "text-slate-900 font-semibold text-xl",
-    headerSubtitle: "text-slate-500 text-sm",
-    socialButtonsBlockButtonText: "text-slate-700 font-medium",
-    formFieldLabel: "text-slate-700 text-sm font-medium",
-    footerActionLink: "text-slate-900 font-medium hover:underline",
-    footerActionText: "text-slate-500",
-    dividerText: "text-slate-400 text-xs",
-    identityPreviewEditButton: "text-slate-700",
-    formFieldSuccessText: "text-green-600",
-    alertText: "text-red-600",
+    headerTitle: "font-semibold text-xl",
+    headerSubtitle: "text-sm",
+    socialButtonsBlockButtonText: "font-medium",
+    formFieldLabel: "text-sm font-medium",
+    footerActionLink: "font-medium hover:underline",
+    footerActionText: "",
+    dividerText: "text-xs",
+    identityPreviewEditButton: "",
+    formFieldSuccessText: "",
+    alertText: "",
     logoBox: "flex items-center justify-center mb-2",
     logoImage: "h-8 w-auto",
-    socialButtonsBlockButton: "border border-slate-200 bg-white hover:bg-slate-50 transition-colors",
-    formButtonPrimary: "bg-slate-900 hover:bg-slate-800 text-white font-medium",
-    formFieldInput: "border-slate-200 bg-white text-slate-900 focus:ring-slate-900 focus:border-slate-900",
-    footerAction: "border-t border-slate-100 pt-4",
-    dividerLine: "bg-slate-200",
-    alert: "bg-red-50 border border-red-200 rounded-lg",
-    otpCodeFieldInput: "border-slate-200 text-slate-900",
+    socialButtonsBlockButton: "transition-colors",
+    formButtonPrimary: "font-medium",
+    formFieldInput: "",
+    footerAction: "pt-4",
+    dividerLine: "",
+    alert: "rounded-lg",
+    otpCodeFieldInput: "",
     formFieldRow: "mb-4",
     main: "p-2",
   },
@@ -102,7 +105,10 @@ function ClerkQueryClientCacheInvalidator() {
 
 function SignInPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div
+      className="flex min-h-screen items-center justify-center px-4"
+      style={{ background: "#05070B" }}
+    >
       <SignIn
         routing="path"
         path={`${basePath}/sign-in`}
@@ -114,7 +120,10 @@ function SignInPage() {
 
 function SignUpPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div
+      className="flex min-h-screen items-center justify-center px-4"
+      style={{ background: "#05070B" }}
+    >
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
@@ -131,7 +140,7 @@ function HomeRedirect() {
         <Redirect to="/dashboard" />
       </Show>
       <Show when="signed-out">
-        <LandingPage />
+        <LandingPage onEnter={() => window.location.hash = "#dashboard"} />
       </Show>
     </>
   );
@@ -150,6 +159,25 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   );
 }
 
+/* ── Shell layout: Sidebar + StatusBar + main content ── */
+function ShellLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="grid h-screen"
+      style={{
+        gridTemplateColumns: "218px 1fr",
+        minWidth: 1120,
+      }}
+    >
+      <Sidebar />
+      <div className="flex flex-col overflow-hidden">
+        <StatusBar />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function AppRouter() {
   const [, setLocation] = useLocation();
 
@@ -162,10 +190,10 @@ function AppRouter() {
       signUpUrl={`${basePath}/sign-up`}
       localization={{
         signIn: {
-          start: { title: "Welcome back", subtitle: "Sign in to RiskRadar" },
+          start: { title: "Welcome back", subtitle: "Sign in to DueRadar" },
         },
         signUp: {
-          start: { title: "Get started", subtitle: "Track your obligations" },
+          start: { title: "Get started", subtitle: "Track your deadlines with DueRadar" },
         },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
@@ -176,32 +204,83 @@ function AppRouter() {
         <WorkspaceProvider>
           <TooltipProvider>
             <Switch>
+              {/* Landing — no shell */}
               <Route path="/" component={HomeRedirect} />
               <Route path="/sign-in/*?" component={SignInPage} />
               <Route path="/sign-up/*?" component={SignUpPage} />
+
+              {/* Shell-wrapped authenticated routes */}
               <Route path="/dashboard">
-                <ProtectedRoute component={DashboardPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <CommandCenterPage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/obligations/new">
-                <ProtectedRoute component={ObligationNewPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <RiskIntakePage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/obligations/:id">
-                <ProtectedRoute component={ObligationDetailPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <RiskRecordPage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/obligations">
-                <ProtectedRoute component={ObligationsPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <RiskRegisterPage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/import">
-                <ProtectedRoute component={ImportPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <RiskIntakePage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/delivery">
-                <ProtectedRoute component={DeliveryPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <DeliveryPage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/audit">
-                <ProtectedRoute component={AuditPage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <AuditPage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route path="/workspace">
-                <ProtectedRoute component={WorkspacePage} />
+                <ProtectedRoute
+                  component={() => (
+                    <ShellLayout>
+                      <WorkspacePage />
+                    </ShellLayout>
+                  )}
+                />
               </Route>
               <Route component={NotFound} />
             </Switch>
