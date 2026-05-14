@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { db } from "@workspace/db";
-import { integrationReceiptsTable } from "@workspace/db";
+import { integrationReceiptsTable, workspacesTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { verifySignature } from "../lib/integrations/flowc/verify";
@@ -105,8 +105,43 @@ router.post("/signals", async (req: RawBodyRequest, res: Response): Promise<void
 
   const decision = await decide(enriched);
 
-  // Resolve target workspace from env var; fall back to slug lookup if configured.
-  const workspaceId = resolveWorkspaceId(tenantKey);
+  // Resolve target workspace: slug lookup first, env var fallback, else 422.
+  let workspaceId: number | null = null;
+
+  if (signal.tenantKey) {
+    try {
+      const [ws] = await db
+        .select({ id: workspacesTable.id })
+        .from(workspacesTable)
+        .where(eq(workspacesTable.slug, signal.tenantKey))
+        .limit(1);
+      if (ws) {
+        workspaceId = ws.id;
+      }
+    } catch (err) {
+      logger.error({ err, tenantKey: signal.tenantKey }, "flowc.workspace.lookup.error");
+      res.status(500).json({ error: "workspace_lookup_failed" });
+      return;
+    }
+  }
+
+  if (workspaceId === null) {
+    const envId = process.env.FLOWC_WORKSPACE_ID;
+    if (envId) {
+      const parsed = parseInt(envId, 10);
+      if (!Number.isNaN(parsed)) {
+        workspaceId = parsed;
+      }
+    }
+  }
+
+  if (workspaceId === null) {
+    res.status(422).json({
+      error: "workspace_not_resolved",
+      detail: "No tenant_key in signal and FLOWC_WORKSPACE_ID not configured",
+    });
+    return;
+  }
 
   const { receipt, obligationId } = await persistReceipt({
     sourceApp,
@@ -163,17 +198,5 @@ router.post("/signals", async (req: RawBodyRequest, res: Response): Promise<void
     processedAt,
   });
 });
-
-function resolveWorkspaceId(tenantKey: string): number | null {
-  const envId = process.env.FLOWC_WORKSPACE_ID;
-  if (envId) {
-    const parsed = parseInt(envId, 10);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  // If FLOWC_WORKSPACE_ID is not set, caller must configure it.
-  // tenantKey is preserved in the receipt for future mapping.
-  void tenantKey;
-  return null;
-}
 
 export default router;
