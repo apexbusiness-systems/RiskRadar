@@ -8,7 +8,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 WORKDIR /app
 
 # Copy workspace manifests first — install layer is cached until these change.
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json .npmrc ./
 
 # Stub every workspace package so pnpm workspace resolution succeeds.
 # Only package.json files are needed at install time (no source yet).
