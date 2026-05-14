@@ -1,5 +1,7 @@
 import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 export interface AuthenticatedRequest extends Request {
   userId: string;
@@ -23,5 +25,8 @@ export const requireAuth = (
   }
   (req as AuthenticatedRequest).userId = userId;
   (req as AuthenticatedRequest).clerkAuth = auth;
+  // Best-effort session-level user context for RLS (definitive enforcement uses withUserContext in handlers)
+  // Note: connection pool may not reuse the same connection for subsequent queries; withUserContext is authoritative.
+  db.execute(sql`SELECT set_config('app.current_user_id', ${userId}, false)`).catch(() => undefined);
   next();
 };
