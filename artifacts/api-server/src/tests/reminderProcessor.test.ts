@@ -1,59 +1,56 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
-// ── Module-level mocks ────────────────────────────────────────────────────────
+// ── Hoisted state ─────────────────────────────────────────────────────────────
+// vi.hoisted() executes BEFORE vi.mock() factories are called, making these
+// refs safe to reference inside the factory closures below.
 
-// Track calls to the mock db so tests can inspect them
-const mockDbCalls = {
-  selectResults: [] as any[],
-  insertValues: [] as any[],
-  updateSets: [] as any[],
-  updateWheres: [] as any[],
-};
+const hoisted = vi.hoisted(() => {
+  const _selectQueue: unknown[][] = [];
 
-// Chainable mock builder — each method returns `this` so callers can chain
-// arbitrarily; the terminal await resolves to the pre-configured result.
-function makeMockChain(resolveValue: any = []) {
-  const chain: any = {
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
-    innerJoin: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    set: vi.fn().mockReturnThis(),
-    values: vi.fn().mockResolvedValue(undefined),
-    // `.then` makes the chain itself a thenable so `await chain` works
-    then: (resolve: (v: any) => any, reject?: (e: any) => any) =>
-      Promise.resolve(resolveValue).then(resolve, reject),
+  const _spies = {
+    sendMail: vi.fn().mockResolvedValue({}),
+    insert: vi.fn(),
+    update: vi.fn(),
   };
-  return chain;
-}
 
-// Persistent mock db object; `selectQueue` drives sequential select() calls.
-let selectQueue: any[][] = [];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let insertSpy: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let updateSpy: any;
+  function makeChain(value: unknown = []) {
+    const chain: Record<string, unknown> = {};
+    const returnSelf = () => chain;
+    chain.from = vi.fn(returnSelf);
+    chain.where = vi.fn(returnSelf);
+    chain.innerJoin = vi.fn(returnSelf);
+    chain.limit = vi.fn(returnSelf);
+    chain.set = vi.fn(returnSelf);
+    chain.values = vi.fn().mockResolvedValue(undefined);
+    chain.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+      Promise.resolve(value).then(resolve, reject);
+    return chain;
+  }
 
-const mockDb = {
-  select: vi.fn((_fields?: any) => {
-    const result = selectQueue.shift() ?? [];
-    return makeMockChain(result);
-  }),
-  insert: vi.fn((_table: any) => {
-    const chain = makeMockChain(undefined);
-    insertSpy && insertSpy(chain);
-    return chain;
-  }),
-  update: vi.fn((_table: any) => {
-    const chain = makeMockChain(undefined);
-    updateSpy && updateSpy(chain);
-    return chain;
-  }),
-};
+  const _db = {
+    select: vi.fn((_fields?: unknown) => {
+      const result = _selectQueue.shift() ?? [];
+      return makeChain(result);
+    }),
+    insert: vi.fn((_table: unknown) => {
+      const chain = makeChain(undefined);
+      _spies.insert(chain);
+      return chain;
+    }),
+    update: vi.fn((_table: unknown) => {
+      const chain = makeChain(undefined);
+      _spies.update(chain);
+      return chain;
+    }),
+  };
+
+  return { db: _db, spies: _spies, selectQueue: _selectQueue, makeChain };
+});
+
+// ── Module mocks ──────────────────────────────────────────────────────────────
 
 vi.mock("@workspace/db", () => ({
-  db: mockDb,
-  // Export table stubs so the processor's named imports resolve without error
+  db: hoisted.db,
   obligationsTable: { status: "status", dueDate: "dueDate", id: "id" },
   reminderRulesTable: {
     obligationId: "obligationId",
@@ -72,27 +69,21 @@ vi.mock("@workspace/db", () => ({
   workspaceMembersTable: { workspaceId: "workspaceId", email: "email" },
 }));
 
-// nodemailer is imported dynamically inside sendEmail() — mock it here so
-// `await import("nodemailer")` returns the mock in every test.
-let sendMailSpy: ReturnType<typeof vi.fn>;
+// nodemailer is dynamically imported inside sendEmail(); mock it so
+// `await import("nodemailer")` resolves to this stub in every test.
+vi.mock("nodemailer", () => ({
+  default: {
+    createTransport: vi.fn(() => ({
+      sendMail: (...args: unknown[]) => hoisted.spies.sendMail(...args),
+    })),
+  },
+}));
 
-vi.mock("nodemailer", () => {
-  sendMailSpy = vi.fn().mockResolvedValue({});
-  return {
-    default: {
-      createTransport: vi.fn(() => ({
-        sendMail: sendMailSpy,
-      })),
-    },
-  };
-});
-
-// ── Import the function under test AFTER mocks are registered ────────────────
+// ── SUT ───────────────────────────────────────────────────────────────────────
 import { processReminders } from "../lib/reminderProcessor";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Returns a date string N days from today (negative = past) */
 function dayOffset(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + n);
@@ -101,7 +92,7 @@ function dayOffset(n: number): string {
 
 const TODAY = dayOffset(0);
 
-function makeObligation(overrides: Partial<Record<string, any>> = {}) {
+function makeObligation(overrides: Record<string, unknown> = {}) {
   return {
     id: 1,
     workspaceId: 10,
@@ -109,61 +100,60 @@ function makeObligation(overrides: Partial<Record<string, any>> = {}) {
     category: "Legal",
     dueDate: dayOffset(7),
     status: "active",
-    ownerEmail: "owner@example.com",
-    backupOwnerEmail: null,
-    notes: null,
-    completedAt: null,
+    ownerEmail: "owner@example.com" as string | null,
+    backupOwnerEmail: null as string | null,
+    notes: null as string | null,
+    completedAt: null as Date | null,
     ...overrides,
   };
 }
 
-function makeRule(overrides: Partial<Record<string, any>> = {}) {
+function makeRule(overrides: Record<string, unknown> = {}) {
   return {
     id: 101,
     obligationId: 1,
     daysBefore: 7,
     channel: "email",
     recipientType: "owner",
-    customEmail: null,
+    customEmail: null as string | null,
     isActive: true,
-    lastTriggeredAt: null,
+    lastTriggeredAt: null as Date | null,
     ...overrides,
   };
 }
 
-// ── Test suite ────────────────────────────────────────────────────────────────
+function queueSelects(...rows: unknown[][]) {
+  for (const r of rows) hoisted.selectQueue.push(r);
+}
+
+// ── Suite ─────────────────────────────────────────────────────────────────────
 
 describe("processReminders", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
-    selectQueue = [];
+    hoisted.selectQueue.length = 0;
+    vi.clearAllMocks();
 
-    // Re-wire the spies after resetAllMocks() clears them
-    sendMailSpy = vi.fn().mockResolvedValue({});
-    insertSpy = vi.fn();
-    updateSpy = vi.fn();
+    // Replace spy refs with fresh functions each test
+    hoisted.spies.sendMail = vi.fn().mockResolvedValue({});
+    hoisted.spies.insert = vi.fn();
+    hoisted.spies.update = vi.fn();
 
-    // Restore the select mock (resetAllMocks clears implementation)
-    mockDb.select.mockImplementation((_fields?: any) => {
-      const result = selectQueue.shift() ?? [];
-      return makeMockChain(result);
+    // Restore db implementations (clearAllMocks removes them)
+    hoisted.db.select.mockImplementation((_fields?: unknown) => {
+      const result = hoisted.selectQueue.shift() ?? [];
+      return hoisted.makeChain(result);
     });
-    mockDb.insert.mockImplementation((_table: any) => {
-      const chain = makeMockChain(undefined);
-      insertSpy(chain);
+    hoisted.db.insert.mockImplementation((_table: unknown) => {
+      const chain = hoisted.makeChain(undefined);
+      hoisted.spies.insert(chain);
       return chain;
     });
-    mockDb.update.mockImplementation((_table: any) => {
-      const chain = makeMockChain(undefined);
-      updateSpy(chain);
+    hoisted.db.update.mockImplementation((_table: unknown) => {
+      const chain = hoisted.makeChain(undefined);
+      hoisted.spies.update(chain);
       return chain;
     });
 
-    // Re-wire nodemailer mock after reset
-    const nodemailer = require("nodemailer");
-    nodemailer.default.createTransport.mockReturnValue({ sendMail: sendMailSpy });
-
-    // Default: no SMTP configured
     delete process.env.SMTP_HOST;
   });
 
@@ -173,40 +163,33 @@ describe("processReminders", () => {
 
   // ── 1. Overdue marking ──────────────────────────────────────────────────────
   describe("overdue obligation marking", () => {
-    it("marks an obligation as expired when dueDate is in the past", async () => {
-      const overdueObligation = makeObligation({ dueDate: dayOffset(-1) });
-
-      // select() call 1: active obligations
-      // select() call 2: reminder rules join (returns nothing — focus on marking)
-      selectQueue = [[overdueObligation], []];
+    it("marks an obligation expired when dueDate is in the past", async () => {
+      const obligation = makeObligation({ dueDate: dayOffset(-1) });
+      queueSelects([obligation], []);
 
       await processReminders();
 
-      // db.update should have been called (to set status='expired')
-      expect(mockDb.update).toHaveBeenCalledTimes(1);
+      expect(hoisted.db.update).toHaveBeenCalledTimes(1);
+      expect(hoisted.db.insert).toHaveBeenCalledTimes(1);
 
-      // db.insert should have been called (audit log)
-      expect(mockDb.insert).toHaveBeenCalledTimes(1);
-
-      // Verify the update chain received the right set() argument
-      const updateChain = updateSpy.mock.calls[0][0];
+      const updateChain = hoisted.spies.update.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(updateChain.set).toHaveBeenCalledWith(
         expect.objectContaining({ status: "expired" }),
       );
     });
 
     it("inserts an audit log entry when an obligation expires", async () => {
-      const overdueObligation = makeObligation({ dueDate: dayOffset(-2) });
-      selectQueue = [[overdueObligation], []];
+      const obligation = makeObligation({ dueDate: dayOffset(-2) });
+      queueSelects([obligation], []);
 
       await processReminders();
 
-      const insertChain = insertSpy.mock.calls[0][0];
+      const insertChain = hoisted.spies.insert.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(insertChain.values).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "obligation.expired",
           actorName: "System",
-          obligationId: overdueObligation.id,
+          obligationId: obligation.id,
         }),
       );
     });
@@ -214,62 +197,53 @@ describe("processReminders", () => {
 
   // ── 2. Skip non-overdue ─────────────────────────────────────────────────────
   describe("non-overdue obligations", () => {
-    it("does NOT update obligations whose dueDate is in the future", async () => {
-      const futureObligation = makeObligation({ dueDate: dayOffset(5) });
-      selectQueue = [[futureObligation], []];
+    it("does NOT update obligations with a future dueDate", async () => {
+      const obligation = makeObligation({ dueDate: dayOffset(5) });
+      queueSelects([obligation], []);
 
       await processReminders();
 
-      expect(mockDb.update).not.toHaveBeenCalled();
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(hoisted.db.update).not.toHaveBeenCalled();
+      expect(hoisted.db.insert).not.toHaveBeenCalled();
     });
 
-    it("does NOT update obligations due exactly today", async () => {
-      const todayObligation = makeObligation({ dueDate: TODAY });
-      selectQueue = [[todayObligation], []];
+    it("does NOT update obligations due exactly today (strict < comparison)", async () => {
+      const obligation = makeObligation({ dueDate: TODAY });
+      queueSelects([obligation], []);
 
       await processReminders();
 
-      // dueDate < todayStr is false when equal, so no update
-      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(hoisted.db.update).not.toHaveBeenCalled();
     });
   });
 
   // ── 3. Reminder fires on correct day ────────────────────────────────────────
   describe("reminder rule firing", () => {
-    it("sends an email when today equals dueDate - daysBefore", async () => {
+    it("sends an email when today equals dueDate minus daysBefore", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
-      const dueDate = dayOffset(7);
-      const obligation = makeObligation({ dueDate });
+      const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-
-      // select 1: active obligations (no overdue ones today)
-      // select 2: rules+obligations join
-      // select 3: existing delivery check (empty → no dupe)
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      expect(sendMailSpy).toHaveBeenCalledTimes(1);
-      expect(sendMailSpy).toHaveBeenCalledWith(
+      expect(hoisted.spies.sendMail).toHaveBeenCalledTimes(1);
+      expect(hoisted.spies.sendMail).toHaveBeenCalledWith(
         expect.objectContaining({ to: obligation.ownerEmail }),
       );
     });
 
-    it("records a 'sent' delivery history entry on success", async () => {
+    it("records a sent delivery history entry on success", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      const insertChain = insertSpy.mock.calls[0][0];
+      const insertChain = hoisted.spies.insert.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(insertChain.values).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: "sent",
-          recipientEmail: obligation.ownerEmail,
-        }),
+        expect.objectContaining({ status: "sent", recipientEmail: obligation.ownerEmail }),
       );
     });
   });
@@ -278,36 +252,30 @@ describe("processReminders", () => {
   describe("wrong-day suppression", () => {
     it("does NOT send email when today is not the reminder date", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
-      // Rule fires 7 days before, but dueDate is 10 days away → reminder date
-      // is 3 days from now, which is NOT today.
+      // dueDate +10 with daysBefore=7 → reminder fires on day +3, not today
       const obligation = makeObligation({ dueDate: dayOffset(10) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }]];
+      queueSelects([], [{ rule, obligation }]);
 
       await processReminders();
 
-      expect(sendMailSpy).not.toHaveBeenCalled();
-      // No delivery insert, no update to lastTriggeredAt
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(hoisted.spies.sendMail).not.toHaveBeenCalled();
+      expect(hoisted.db.insert).not.toHaveBeenCalled();
     });
   });
 
   // ── 5. Deduplication ────────────────────────────────────────────────────────
   describe("deduplication", () => {
-    it("skips sending when a delivery record already exists for this rule/email/day", async () => {
+    it("skips sending when a delivery record already exists for rule/email/day", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-
-      // Existing delivery returned
-      const existingDelivery = { id: 999 };
-      selectQueue = [[], [{ rule, obligation }], [existingDelivery]];
+      queueSelects([], [{ rule, obligation }], [{ id: 999 }]);
 
       await processReminders();
 
-      expect(sendMailSpy).not.toHaveBeenCalled();
-      // No new delivery history insert
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(hoisted.spies.sendMail).not.toHaveBeenCalled();
+      expect(hoisted.db.insert).not.toHaveBeenCalled();
     });
   });
 
@@ -320,15 +288,26 @@ describe("processReminders", () => {
         daysBefore: 7,
         lastTriggeredAt: new Date(`${TODAY}T08:00:00Z`),
       });
-      selectQueue = [[], [{ rule, obligation }]];
+      queueSelects([], [{ rule, obligation }]);
 
       await processReminders();
 
-      expect(sendMailSpy).not.toHaveBeenCalled();
-      // No delivery select, no insert, no update to lastTriggeredAt
-      expect(mockDb.insert).not.toHaveBeenCalled();
-      // update might still be called 0 times because we never reach that code
-      // (we only care that sendMail was NOT called)
+      expect(hoisted.spies.sendMail).not.toHaveBeenCalled();
+      expect(hoisted.db.insert).not.toHaveBeenCalled();
+    });
+
+    it("does NOT skip rule when lastTriggeredAt was yesterday", async () => {
+      process.env.SMTP_HOST = "smtp.example.com";
+      const obligation = makeObligation({ dueDate: dayOffset(7) });
+      const rule = makeRule({
+        daysBefore: 7,
+        lastTriggeredAt: new Date(`${dayOffset(-1)}T08:00:00Z`),
+      });
+      queueSelects([], [{ rule, obligation }], []);
+
+      await processReminders();
+
+      expect(hoisted.spies.sendMail).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -336,32 +315,40 @@ describe("processReminders", () => {
   describe("missing recipients", () => {
     it("skips sending when recipientType=owner but ownerEmail is null", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
-      const obligation = makeObligation({ ownerEmail: null });
-      // Adjust dueDate so today IS the reminder date
-      obligation.dueDate = dayOffset(7);
+      const obligation = makeObligation({ dueDate: dayOffset(7), ownerEmail: null });
       const rule = makeRule({ daysBefore: 7, recipientType: "owner" });
-      selectQueue = [[], [{ rule, obligation }]];
+      queueSelects([], [{ rule, obligation }]);
 
       await processReminders();
 
-      expect(sendMailSpy).not.toHaveBeenCalled();
-      expect(mockDb.insert).not.toHaveBeenCalled();
+      expect(hoisted.spies.sendMail).not.toHaveBeenCalled();
+      expect(hoisted.db.insert).not.toHaveBeenCalled();
+    });
+
+    it("skips sending when recipientType=custom_email but customEmail is null", async () => {
+      process.env.SMTP_HOST = "smtp.example.com";
+      const obligation = makeObligation({ dueDate: dayOffset(5) });
+      const rule = makeRule({ daysBefore: 5, recipientType: "custom_email", customEmail: null });
+      queueSelects([], [{ rule, obligation }]);
+
+      await processReminders();
+
+      expect(hoisted.spies.sendMail).not.toHaveBeenCalled();
     });
   });
 
   // ── 8. SMTP not configured ──────────────────────────────────────────────────
   describe("SMTP not configured", () => {
-    it("records delivery as 'pending' and does NOT call nodemailer", async () => {
-      // SMTP_HOST is not set (cleared in beforeEach)
+    it("records delivery as pending and does NOT call nodemailer", async () => {
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      expect(sendMailSpy).not.toHaveBeenCalled();
+      expect(hoisted.spies.sendMail).not.toHaveBeenCalled();
 
-      const insertChain = insertSpy.mock.calls[0][0];
+      const insertChain = hoisted.spies.insert.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(insertChain.values).toHaveBeenCalledWith(
         expect.objectContaining({ status: "pending" }),
       );
@@ -370,48 +357,46 @@ describe("processReminders", () => {
     it("includes an errorMessage explaining SMTP is not configured", async () => {
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      const insertChain = insertSpy.mock.calls[0][0];
+      const insertChain = hoisted.spies.insert.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(insertChain.values).toHaveBeenCalledWith(
-        expect.objectContaining({
-          errorMessage: expect.stringContaining("SMTP not configured"),
-        }),
+        expect.objectContaining({ errorMessage: expect.stringContaining("SMTP not configured") }),
       );
     });
   });
 
   // ── 9. Email send failure ────────────────────────────────────────────────────
   describe("email send failure", () => {
-    it("records delivery as 'failed' when nodemailer throws", async () => {
+    it("records delivery as failed when nodemailer throws", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
-      sendMailSpy.mockRejectedValueOnce(new Error("connection refused"));
+      hoisted.spies.sendMail.mockRejectedValueOnce(new Error("connection refused"));
 
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      const insertChain = insertSpy.mock.calls[0][0];
+      const insertChain = hoisted.spies.insert.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(insertChain.values).toHaveBeenCalledWith(
         expect.objectContaining({ status: "failed" }),
       );
     });
 
-    it("stores an error message on failed delivery", async () => {
+    it("stores an errorMessage on failed delivery", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
-      sendMailSpy.mockRejectedValueOnce(new Error("auth error"));
+      hoisted.spies.sendMail.mockRejectedValueOnce(new Error("auth error"));
 
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      const insertChain = insertSpy.mock.calls[0][0];
+      const insertChain = hoisted.spies.insert.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(insertChain.values).toHaveBeenCalledWith(
         expect.objectContaining({ errorMessage: "Email send failed" }),
       );
@@ -420,29 +405,19 @@ describe("processReminders", () => {
 
   // ── 10. all_members recipientType ────────────────────────────────────────────
   describe("all_members recipient type", () => {
-    it("queries workspace_members and sends to each member email", async () => {
+    it("queries workspace_members and sends to each member", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
       const obligation = makeObligation({ dueDate: dayOffset(3) });
-      const rule = makeRule({
-        daysBefore: 3,
-        recipientType: "all_members",
-      });
-      const members = [
-        { email: "alice@example.com" },
-        { email: "bob@example.com" },
-      ];
-
-      // select 1: active obligations (none overdue)
-      // select 2: rules+obligations join
-      // select 3: workspace_members
-      // select 4: delivery check for alice (empty)
-      // select 5: delivery check for bob (empty)
-      selectQueue = [[], [{ rule, obligation }], members, [], []];
+      const rule = makeRule({ daysBefore: 3, recipientType: "all_members" });
+      const members = [{ email: "alice@example.com" }, { email: "bob@example.com" }];
+      queueSelects([], [{ rule, obligation }], members, [], []);
 
       await processReminders();
 
-      expect(sendMailSpy).toHaveBeenCalledTimes(2);
-      const toAddresses = sendMailSpy.mock.calls.map((c) => c[0].to);
+      expect(hoisted.spies.sendMail).toHaveBeenCalledTimes(2);
+      const toAddresses = hoisted.spies.sendMail.mock.calls.map(
+        (c: unknown[]) => (c[0] as { to: string }).to,
+      );
       expect(toAddresses).toContain("alice@example.com");
       expect(toAddresses).toContain("bob@example.com");
     });
@@ -452,53 +427,47 @@ describe("processReminders", () => {
       const obligation = makeObligation({ dueDate: dayOffset(3) });
       const rule = makeRule({ daysBefore: 3, recipientType: "all_members" });
       const members = [{ email: "alice@example.com" }, { email: "bob@example.com" }];
-      selectQueue = [[], [{ rule, obligation }], members, [], []];
+      queueSelects([], [{ rule, obligation }], members, [], []);
 
       await processReminders();
 
-      // Two delivery inserts + one lastTriggeredAt update call
-      expect(mockDb.insert).toHaveBeenCalledTimes(2);
+      expect(hoisted.db.insert).toHaveBeenCalledTimes(2);
     });
 
-    it("deduplicates recipients from all_members when emails repeat", async () => {
+    it("deduplicates when the same email appears multiple times in members", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
       const obligation = makeObligation({ dueDate: dayOffset(3) });
       const rule = makeRule({ daysBefore: 3, recipientType: "all_members" });
-      // Same email twice → should only send once
-      const members = [
-        { email: "alice@example.com" },
-        { email: "alice@example.com" },
-      ];
-      selectQueue = [[], [{ rule, obligation }], members, []];
+      const members = [{ email: "alice@example.com" }, { email: "alice@example.com" }];
+      queueSelects([], [{ rule, obligation }], members, []);
 
       await processReminders();
 
-      expect(sendMailSpy).toHaveBeenCalledTimes(1);
+      expect(hoisted.spies.sendMail).toHaveBeenCalledTimes(1);
     });
   });
 
-  // ── General robustness ────────────────────────────────────────────────────────
+  // ── Robustness ────────────────────────────────────────────────────────────────
   describe("robustness", () => {
-    it("does not throw even if db.select rejects (error is caught internally)", async () => {
-      mockDb.select.mockImplementationOnce(() => {
+    it("resolves without throwing when db.select throws (caught internally)", async () => {
+      hoisted.db.select.mockImplementationOnce(() => {
         throw new Error("db connection lost");
       });
 
-      // processReminders catches all errors internally
       await expect(processReminders()).resolves.toBeUndefined();
     });
 
-    it("updates lastTriggeredAt for the rule after a successful send", async () => {
+    it("updates lastTriggeredAt on the rule after a successful send", async () => {
       process.env.SMTP_HOST = "smtp.example.com";
       const obligation = makeObligation({ dueDate: dayOffset(7) });
       const rule = makeRule({ daysBefore: 7 });
-      selectQueue = [[], [{ rule, obligation }], []];
+      queueSelects([], [{ rule, obligation }], []);
 
       await processReminders();
 
-      // update should be called once to set lastTriggeredAt
-      expect(mockDb.update).toHaveBeenCalledTimes(1);
-      const updateChain = updateSpy.mock.calls[0][0];
+      // One update call: lastTriggeredAt (obligation not updated since dueDate is future)
+      expect(hoisted.db.update).toHaveBeenCalledTimes(1);
+      const updateChain = hoisted.spies.update.mock.calls[0][0] as Record<string, ReturnType<typeof vi.fn>>;
       expect(updateChain.set).toHaveBeenCalledWith(
         expect.objectContaining({ lastTriggeredAt: expect.any(Date) }),
       );
