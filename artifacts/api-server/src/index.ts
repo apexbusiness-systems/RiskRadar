@@ -1,3 +1,5 @@
+import { initSentry } from "./lib/sentry";
+initSentry();
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startReminderScheduler } from "./lib/reminderProcessor";

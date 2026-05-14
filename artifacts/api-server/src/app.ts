@@ -1,5 +1,6 @@
 import express, { type Express, type Request } from "express";
 import crypto from "crypto";
+import { Sentry } from "./lib/sentry";
 
 // Augment Request to carry rawBody for HMAC-verified routes.
 type RawBodyRequest = Request & { rawBody?: Buffer };
@@ -151,5 +152,7 @@ app.use(
 
 app.use("/api", idempotencyMiddleware);
 app.use("/api", router);
+
+Sentry.setupExpressErrorHandler(app);
 
 export default app;
