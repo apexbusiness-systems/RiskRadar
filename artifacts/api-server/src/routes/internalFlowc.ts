@@ -6,7 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { verifySignature } from "../lib/integrations/flowc/verify";
 import { sha256Hex } from "../lib/integrations/flowc/hash";
-import { transformPayload } from "../lib/integrations/flowc/transform";
+import { transformPayload, enrichSignal } from "../lib/integrations/flowc/transform";
 import { decide } from "../lib/integrations/flowc/decide";
 import { persistReceipt } from "../lib/integrations/flowc/persist";
 import {
@@ -100,9 +100,10 @@ router.post("/signals", async (req: RawBodyRequest, res: Response): Promise<void
     return;
   }
 
-  const signal = transformPayload(rawPayload, sourceApp, tenantKey);
+  const normalized = transformPayload(rawPayload, sourceApp, tenantKey);
+  const enriched = await enrichSignal(normalized);
 
-  const decision = await decide(signal);
+  const decision = await decide(enriched);
 
   // Resolve target workspace from env var; fall back to slug lookup if configured.
   const workspaceId = resolveWorkspaceId(tenantKey);
@@ -113,7 +114,7 @@ router.post("/signals", async (req: RawBodyRequest, res: Response): Promise<void
     idempotencyKey,
     requestHash,
     signatureTimestamp: new Date(parseInt(timestamp, 10) * 1000),
-    signal,
+    signal: enriched,
     decision,
     workspaceId,
   });
@@ -130,7 +131,7 @@ router.post("/signals", async (req: RawBodyRequest, res: Response): Promise<void
       receiptId: receipt.id,
       idempotencyKey,
       decision: decision.code,
-      signal,
+      signal: enriched,
       obligationId,
       processedAt,
     });

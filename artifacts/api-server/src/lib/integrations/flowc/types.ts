@@ -11,6 +11,8 @@ export interface NormalizedSignal {
   summary: string;
   evidence: Record<string, unknown>;
   rawPayload: Record<string, unknown>;
+  title?: string;
+  notes?: string;
 }
 
 export type DecisionCode =
