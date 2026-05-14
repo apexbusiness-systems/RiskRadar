@@ -1,5 +1,8 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request } from "express";
 import crypto from "crypto";
+
+// Augment Request to carry rawBody for HMAC-verified routes.
+type RawBodyRequest = Request & { rawBody?: Buffer };
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -104,7 +107,18 @@ app.use(
   }),
 );
 
-app.use(express.json({ limit: "5mb" }));
+app.use(
+  express.json({
+    limit: "5mb",
+    verify: (req: RawBodyRequest, _res, buf) => {
+      // Capture raw bytes for HMAC verification on internal FlowC routes only.
+      const url = (req as Request).originalUrl ?? (req as Request).url ?? "";
+      if (url.startsWith("/api/internal/flowc")) {
+        req.rawBody = buf;
+      }
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting on expensive / seed endpoints

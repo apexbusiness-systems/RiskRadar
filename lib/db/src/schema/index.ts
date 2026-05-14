@@ -5,3 +5,5 @@ export * from "./reminderRules";
 export * from "./deliveryHistory";
 export * from "./auditLogs";
 export * from "./idempotency";
+export * from "./integrationReceipts";
+export * from "./integrationOutbox";
