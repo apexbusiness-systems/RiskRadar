@@ -15,9 +15,11 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY lib/db/package.json                  lib/db/package.json
 COPY lib/db/tsconfig.json                 lib/db/tsconfig.json
 COPY lib/api-zod/package.json             lib/api-zod/package.json
+COPY lib/api-zod/tsconfig.json            lib/api-zod/tsconfig.json
 COPY lib/api-spec/package.json            lib/api-spec/package.json
 COPY lib/api-client-react/package.json    lib/api-client-react/package.json
 COPY artifacts/api-server/package.json    artifacts/api-server/package.json
+COPY artifacts/mockup-sandbox/package.json artifacts/mockup-sandbox/package.json
 COPY artifacts/renewal-radar/package.json artifacts/renewal-radar/package.json
 COPY scripts/package.json                 scripts/package.json
 
