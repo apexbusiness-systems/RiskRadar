@@ -1,11 +1,16 @@
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import { execSync } from 'child_process'
 
-let container: StartedPostgreSqlContainer;
+let container: StartedPostgreSqlContainer | undefined;
 
 export async function setup() {
-  container = await new PostgreSqlContainer("postgres:15-alpine").start();
-  process.env.DATABASE_URL = container.getConnectionUri();
+  // If DATABASE_URL is pre-configured (e.g. CI without Docker, local Postgres),
+  // skip testcontainers and use the provided connection directly.
+  if (!process.env.DATABASE_URL) {
+    container = await new PostgreSqlContainer("postgres:15-alpine").start();
+    process.env.DATABASE_URL = container.getConnectionUri();
+  }
+
   process.env.CLERK_SECRET_KEY = "test-clerk-secret-key";
   process.env.CLERK_PUBLISHABLE_KEY = "pk_test_Y2xlcmsuZXhhbXBsZS5jb20k";
   process.env.PORT = "3001";
