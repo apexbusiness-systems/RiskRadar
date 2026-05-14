@@ -79,8 +79,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <RadarIcon className="w-4 h-4 text-slate-900" />
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-sm text-white leading-tight">RiskRadar</p>
-            <p className="text-xs text-white/40 leading-tight mt-0.5 truncate">RiskRadar</p>
+            <p className="font-bold text-sm text-white leading-tight">DueRadar</p>
+            <p className="text-xs text-white/40 leading-tight mt-0.5 truncate">Deadline Tracker</p>
           </div>
         </div>
 
@@ -167,7 +167,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="w-6 h-6 bg-amber-500 rounded flex items-center justify-center">
               <RadarIcon className="w-3 h-3 text-slate-900" />
             </div>
-            <span className="font-bold text-sm text-slate-900">RiskRadar</span>
+            <span className="font-bold text-sm text-slate-900">DueRadar</span>
           </div>
         </header>
 

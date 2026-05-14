@@ -29,7 +29,7 @@ async function sendEmail(to: string, subject: string, body: string): Promise<boo
       },
     });
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || "noreply@renewalradar.app",
+      from: process.env.SMTP_FROM || "noreply@dueradar.icu",
       to,
       subject,
       text: body,
@@ -160,9 +160,9 @@ Days Until Due: ${daysUntilDue}
 ${obligation.ownerEmail ? `Owner:        ${obligation.ownerEmail}` : ""}
 ${obligation.notes ? `\nNotes: ${obligation.notes}` : ""}
 
-Please log in to RiskRadar to take action.
+Please log in to DueRadar to take action.
 
-— RiskRadar`.trim();
+— DueRadar`.trim();
 
       const uniqueRecipients = [...new Set(recipients)].filter(Boolean);
 

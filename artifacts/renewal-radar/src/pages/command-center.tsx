@@ -114,7 +114,7 @@ function CoverageMeter({ value = 82 }: { value?: number }) {
   return (
     <div style={{ background: "#0A0E18", border: "1px solid rgba(255,255,255,.07)", borderRadius: 13, boxShadow: "0 4px 20px rgba(0,0,0,.5)", padding: "18px 20px" }}>
       <div className="flex justify-between items-baseline mb-3">
-        <span className="text-[10.5px] font-bold text-[#4A5568] uppercase tracking-[0.14em]">Risk Coverage</span>
+        <span className="text-[10.5px] font-bold text-[#4A5568] uppercase tracking-[0.14em]">Monitoring Coverage</span>
         <span className="text-2xl font-bold text-[#00E676] tracking-[-0.03em]" style={{ fontVariantNumeric: "tabular-nums" }}>
           {value}%
         </span>

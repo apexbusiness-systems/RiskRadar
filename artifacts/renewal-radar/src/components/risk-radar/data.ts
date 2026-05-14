@@ -82,7 +82,7 @@ export const RR_DATA = {
       { k: "Last reminder", v: "12h", klass: "" as const },
     ],
     kv: [
-      { k: "Risk ID", v: "RR-014" },
+      { k: "Due ID", v: "DR-014" },
       { k: "Type", v: "Insurance — General Liability" },
       { k: "Exposure", v: "Critical · revenue-blocking" },
       { k: "Owner", v: "Sarah Chen · ops@northwind.co" },
@@ -94,9 +94,9 @@ export const RR_DATA = {
     events: [
       { when: "12 May · 09:00", lvl: "warn", title: "Reminder sent to Sarah", sub: "Email + Slack · 4 days remaining" },
       { when: "10 May · 14:22", lvl: "warn", title: "Notice window opened", sub: "T-7 days — action required by Fri 15" },
-      { when: "04 May · 11:08", lvl: "", title: "Risk escalated to Critical", sub: "Auto-rule: insurance & <14 days" },
+      { when: "04 May · 11:08", lvl: "", title: "Escalated to Critical", sub: "Auto-rule: insurance & <14 days" },
       { when: "21 Apr · 16:40", lvl: "", title: "Backup assigned: James Okafor", sub: "By Sarah Chen" },
-      { when: "01 Mar · 08:00", lvl: "safe", title: "Onboarded from spreadsheet", sub: "Risk Intake batch 2026-Q1" },
+      { when: "01 Mar · 08:00", lvl: "safe", title: "Onboarded from spreadsheet", sub: "Due Intake batch 2026-Q1" },
     ],
     reminders: [
       { nm: "Owner — 14 days out", sub: "Email · Sent 28 Apr", on: true },

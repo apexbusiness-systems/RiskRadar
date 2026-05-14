@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Dependencies — reinstalled during build
+**/node_modules
+
+# Compiled output — rebuilt during build
+**/dist
+**/*.tsbuildinfo
+
+# Frontend source — not needed for the API server build
+artifacts/renewal-radar/src
+artifacts/renewal-radar/public
+artifacts/renewal-radar/index.html
+artifacts/renewal-radar/vite.config.ts
+artifacts/renewal-radar/tsconfig.json
+artifacts/renewal-radar/components.json
+artifacts/renewal-radar/.replit-artifact
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Dev tooling
+.vscode
+.idea
+coverage
+**/*.md

@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startReminderScheduler } from "./lib/reminderProcessor";
+import { startOutboxScheduler } from "./lib/integrations/flowc/outbox";
 
 // ── Startup environment validation ──────────────────────────────────────────
 const REQUIRED_ENV = ["PORT", "DATABASE_URL", "CLERK_SECRET_KEY"] as const;
@@ -46,10 +47,14 @@ const server = app.listen(port, (err?: Error) => {
     ? startReminderScheduler()
     : () => logger.info("Reminder scheduler disabled");
 
+  // FlowC outbox retry scheduler — activates only when FLOWC_CALLBACK_URL is set.
+  const stopOutbox = startOutboxScheduler();
+
   // Graceful shutdown on SIGTERM / SIGINT
   const shutdown = (signal: string) => {
     logger.info({ signal }, "Received shutdown signal — draining");
     stopScheduler();
+    stopOutbox();
     server.close(() => {
       logger.info("HTTP server closed");
       process.exit(0);
