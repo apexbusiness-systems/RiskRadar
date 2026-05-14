@@ -44,6 +44,10 @@ router.get("/healthz", async (_req, res) => {
       status: "ok",
       db: "connected",
       outbox,
+      scheduler: {
+        enabled: process.env.ENABLE_REMINDER_SCHEDULER === "true",
+        smtp_configured: !!process.env.SMTP_HOST,
+      },
       uptime: process.uptime(),
     });
   } catch (err) {

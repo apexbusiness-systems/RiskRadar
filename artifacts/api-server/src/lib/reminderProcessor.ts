@@ -9,6 +9,21 @@ import {
 import { eq, and, gte, lt } from "drizzle-orm";
 import { logger } from "./logger";
 
+async function notifySlack(text: string): Promise<void> {
+  const url = process.env.SLACK_WEBHOOK_URL;
+  if (!url) return;
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch {
+    // fire-and-forget — never let Slack failure break the processor
+  }
+}
+
 async function sendEmail(to: string, subject: string, body: string): Promise<boolean> {
   const smtpHost = process.env.SMTP_HOST;
 
@@ -72,6 +87,10 @@ export async function processReminders(): Promise<void> {
           details: { dueDate: obligation.dueDate },
         });
 
+        void notifySlack(
+          `:warning: *DueRadar* — Obligation expired: *${obligation.title}* (ID ${obligation.id}) was due ${obligation.dueDate} and is now marked expired.`
+        );
+
         logger.info(
           { obligationId: obligation.id, title: obligation.title },
           "Marked obligation as expired",
@@ -122,6 +141,9 @@ export async function processReminders(): Promise<void> {
         recipients.push(obligation.ownerEmail);
       } else if (rule.recipientType === "backup_owner" && obligation.backupOwnerEmail) {
         recipients.push(obligation.backupOwnerEmail);
+        void notifySlack(
+          `:escalating: *DueRadar* — Escalation reminder sent: *${obligation.title}* escalated to backup owner ${obligation.backupOwnerEmail}`
+        );
         if (obligation.ownerEmail && !obligation.completedAt) {
           recipients.push(obligation.ownerEmail);
         }
@@ -215,6 +237,12 @@ Please log in to DueRadar to take action.
           errorMessage: errorMsg,
         });
 
+        if (deliveryStatus === "failed") {
+          void notifySlack(
+            `:x: *DueRadar* — Reminder delivery failed for *${obligation.title}* (rule ${rule.id}) → ${email}`
+          );
+        }
+
         logger.info(
           { runId, obligationId: obligation.id, status: deliveryStatus },
           "Reminder delivery recorded",
@@ -237,6 +265,12 @@ Please log in to DueRadar to take action.
 // Start hourly interval — returns a cleanup function for graceful shutdown
 export function startReminderScheduler(): () => void {
   logger.info("Starting hourly reminder scheduler");
+
+  if (!process.env.SMTP_HOST) {
+    logger.warn(
+      "ENABLE_REMINDER_SCHEDULER is active but SMTP_HOST is not configured — reminders will be recorded as pending, no emails will be sent. Set SMTP_HOST, SMTP_USER, SMTP_PASS to activate email delivery.",
+    );
+  }
 
   const startupTimer = setTimeout(() => processReminders(), 5000);
   const interval = setInterval(() => processReminders(), 60 * 60 * 1000);
