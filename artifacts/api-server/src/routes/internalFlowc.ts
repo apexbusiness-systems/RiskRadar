@@ -108,18 +108,18 @@ router.post("/signals", async (req: RawBodyRequest, res: Response): Promise<void
   // Resolve target workspace: slug lookup first, env var fallback, else 422.
   let workspaceId: number | null = null;
 
-  if (signal.tenantKey) {
+  if (tenantKey) {
     try {
       const [ws] = await db
         .select({ id: workspacesTable.id })
         .from(workspacesTable)
-        .where(eq(workspacesTable.slug, signal.tenantKey))
+        .where(eq(workspacesTable.slug, tenantKey))
         .limit(1);
       if (ws) {
         workspaceId = ws.id;
       }
     } catch (err) {
-      logger.error({ err, tenantKey: signal.tenantKey }, "flowc.workspace.lookup.error");
+      logger.error({ err, tenantKey }, "flowc.workspace.lookup.error");
       res.status(500).json({ error: "workspace_lookup_failed" });
       return;
     }
