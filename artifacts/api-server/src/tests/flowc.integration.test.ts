@@ -320,6 +320,71 @@ describe("FlowC Integration", () => {
     delete process.env.FLOWC_CALLBACK_SECRET;
   });
 
+  it("resolves workspace from tenantKey slug when FLOWC_WORKSPACE_ID is absent", async () => {
+    const slug = `tenant-${crypto.randomUUID()}`;
+    await db
+      .insert(workspacesTable)
+      .values({ name: "Tenant WS", slug })
+      .returning({ id: workspacesTable.id });
+
+    const savedEnv = process.env.FLOWC_WORKSPACE_ID;
+    delete process.env.FLOWC_WORKSPACE_ID;
+
+    try {
+      const body = JSON.stringify({
+        event_type: "compliance.check",
+        review_required: false,
+        summary: "Tenant key resolution test",
+        evidence: {},
+      });
+      const key = crypto.randomUUID();
+      const hdrs = headers(body, {
+        "x-tenant-key": slug,
+        "x-idempotency-key": key,
+      });
+      const res = await post(body, hdrs);
+      expect(res.status).toBe(200);
+      expect(res.body.received).toBe(true);
+
+      const [receipt] = await db
+        .select()
+        .from(integrationReceiptsTable)
+        .where(eq(integrationReceiptsTable.idempotencyKey, key))
+        .limit(1);
+      expect(receipt).toBeDefined();
+      expect(receipt.tenantKey).toBe(slug);
+    } finally {
+      if (savedEnv !== undefined) {
+        process.env.FLOWC_WORKSPACE_ID = savedEnv;
+      }
+    }
+  });
+
+  it("returns 422 when tenantKey has no matching workspace and FLOWC_WORKSPACE_ID is absent", async () => {
+    const savedEnv = process.env.FLOWC_WORKSPACE_ID;
+    delete process.env.FLOWC_WORKSPACE_ID;
+
+    try {
+      const body = JSON.stringify({
+        event_type: "compliance.check",
+        review_required: false,
+        summary: "Unresolvable workspace test",
+        evidence: {},
+      });
+      const hdrs = headers(body, {
+        "x-tenant-key": `unknown-tenant-${crypto.randomUUID()}`,
+        "x-idempotency-key": crypto.randomUUID(),
+      });
+      const res = await post(body, hdrs);
+      expect(res.status).toBe(422);
+      expect(res.body.error).toBe("workspace_not_resolved");
+    } finally {
+      if (savedEnv !== undefined) {
+        process.env.FLOWC_WORKSPACE_ID = savedEnv;
+      }
+    }
+  });
+
   it("outbox retry claims pending rows safely without throwing", async () => {
     const { processOutbox } = await import(
       "../lib/integrations/flowc/outbox"
