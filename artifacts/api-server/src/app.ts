@@ -138,8 +138,17 @@ const importLimiter = rateLimit({
   message: { error: "Too many import requests, please slow down" },
 });
 
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many AI requests, please slow down" },
+});
+
 app.use("/api/me/seed", seedLimiter);
 app.use("/api/obligations/import", importLimiter);
+app.use("/api/ai", aiLimiter);
 
 app.use(
   clerkMiddleware((req) => ({
