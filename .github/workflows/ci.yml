@@ -59,7 +59,44 @@ jobs:
           NODE_ENV: test
         run: pnpm --filter @workspace/api-server run test
 
-  # ── Docker build (PR validation only — no push) ───────────────────────────
+  # ── Cloudflare Pages deploy ──────────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Frontend (Cloudflare Pages)
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build lib packages
+        run: |
+          pnpm exec tsc --build lib/db/tsconfig.json
+          pnpm exec tsc --build lib/api-zod/tsconfig.json
+
+      - name: Build frontend
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+        run: pnpm --filter @workspace/renewal-radar run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy artifacts/renewal-radar/dist/public --project-name=dueradar --branch=main
+
+  # ── Docker build ─────────────────────────────────────────────────────────────
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
