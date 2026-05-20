@@ -23,6 +23,7 @@ import { format, parseISO } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { HealthScoreBadge } from "@/components/HealthScoreBadge";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const CATEGORIES = ["All", "Licensing", "Insurance", "Contracts", "Software", "HR & Compliance", "Real Estate", "Other"];
@@ -250,6 +251,7 @@ export default function ObligationsPage() {
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Due Date</th>
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Owner</th>
+                  <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Health</th>
                     <th className="text-right px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>

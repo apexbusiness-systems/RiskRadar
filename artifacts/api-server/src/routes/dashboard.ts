@@ -6,10 +6,11 @@ import {
   workspaceMembersTable,
   reminderRulesTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, sql, isNull, notExists } from "drizzle-orm";
+import { eq, and, gte, lte, sql, isNull, notExists, inArray } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAuth";
 import type { Request, Response } from "express";
 import { assertWorkspaceMember } from "../lib/authz";
+import { computeHealthScore } from "../lib/healthScore";
 
 const router = Router();
 
@@ -308,6 +309,59 @@ router.get("/risk", requireAuth, async (req: Request, res: Response) => {
     });
   } catch (err) {
     req.log.error({ err }, "getDashboardRisk error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+router.get("/triage", requireAuth, async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).userId;
+  try {
+    const workspaceIdParam = req.query.workspaceId as string | undefined;
+    if (!workspaceIdParam) {
+      res.status(400).json({ error: "workspaceId is required" });
+      return;
+    }
+    const workspaceId = parseInt(workspaceIdParam, 10);
+    if (!Number.isInteger(workspaceId)) {
+      res.status(400).json({ error: "Invalid workspaceId" });
+      return;
+    }
+    await assertWorkspaceMember(workspaceId, userId);
+
+    const obligations = await db
+      .select()
+      .from(obligationsTable)
+      .where(and(eq(obligationsTable.workspaceId, workspaceId), eq(obligationsTable.status, "active")))
+      .orderBy(obligationsTable.healthScore)
+      .limit(10);
+
+    const oblIds = obligations.map((o) => o.id);
+    const ruleCounts: Record<number, number> = {};
+    if (oblIds.length > 0) {
+      const counts = await db
+        .select({ obligationId: reminderRulesTable.obligationId, count: sql<number>`count(*)::int` })
+        .from(reminderRulesTable)
+        .where(and(eq(reminderRulesTable.isActive, true), inArray(reminderRulesTable.obligationId, oblIds)))
+        .groupBy(reminderRulesTable.obligationId);
+      for (const row of counts) ruleCounts[row.obligationId] = row.count;
+    }
+
+    const result = obligations.map((o) => ({
+      ...o,
+      healthScore: o.healthScore,
+      healthBreakdown: computeHealthScore({
+        status: o.status,
+        dueDate: o.dueDate,
+        ownerEmail: o.ownerEmail ?? null,
+        backupOwnerEmail: o.backupOwnerEmail ?? null,
+        activeReminderRuleCount: ruleCounts[o.id] ?? 0,
+      }).factors,
+    }));
+
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "getTriage error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

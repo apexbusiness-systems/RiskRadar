@@ -82,6 +82,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/DashboardRisk"
 
+  /dashboard/triage:
+    get:
+      operationId: getTriageObligations
+      tags: [dashboard]
+      summary: Get top 10 lowest-health active obligations for triage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: workspaceId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Triage obligations sorted by health score ascending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TriageObligation"
+
   /dashboard/upcoming:
     get:
       operationId: getUpcomingObligations
@@ -672,6 +694,29 @@ components:
           type: string
       required: [id, title, dueDate, category]
 
+
+    HealthFactor:
+      type: object
+      properties:
+        key:
+          type: string
+        deduction:
+          type: integer
+        triggered:
+          type: boolean
+      required: [key, deduction, triggered]
+
+    TriageObligation:
+      allOf:
+        - $ref: "#/components/schemas/Obligation"
+        - type: object
+          properties:
+            healthBreakdown:
+              type: array
+              items:
+                $ref: "#/components/schemas/HealthFactor"
+          required: [healthBreakdown]
+
     DashboardRisk:
       type: object
       properties:
@@ -825,6 +870,9 @@ components:
           type: array
           items:
             type: string
+        healthScore:
+          type: integer
+          description: "0-100 health score (0=critical, 100=healthy). Refreshed hourly."
         completedAt:
           type: string
           format: date-time
@@ -887,6 +935,9 @@ components:
           type: array
           items:
             type: string
+        healthScore:
+          type: integer
+          description: "0-100 health score (0=critical, 100=healthy). Refreshed hourly."
       required: [workspaceId, title, category, dueDate]
 
     CompleteObligationBody:
