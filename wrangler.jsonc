@@ -1,18 +1,5 @@
 {
   "name": "dueradar",
   "compatibility_date": "2026-05-13",
-  "routes": [
-    {
-      "pattern": "dueradar.icu/*",
-      "zone_id": "4ecb09d425eab6610c7f0084fac7e173"
-    },
-    {
-      "pattern": "www.dueradar.icu/*",
-      "zone_id": "4ecb09d425eab6610c7f0084fac7e173"
-    }
-  ],
-  "assets": {
-    "directory": "./artifacts/renewal-radar/dist/public",
-    "not_found_handling": "single-page-application"
-  }
+  "pages_build_output_dir": "./artifacts/renewal-radar/dist/public"
 }
