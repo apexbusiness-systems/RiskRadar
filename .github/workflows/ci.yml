@@ -94,7 +94,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy artifacts/renewal-radar/dist/public --project-name=dueradar --branch=main
+          command: pages deploy artifacts/renewal-radar/dist/public --project-name=dueradar --branch=main --functions=artifacts/renewal-radar/functions
 
   # ── Docker build ─────────────────────────────────────────────────────────────
   docker:
