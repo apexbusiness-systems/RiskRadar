@@ -256,7 +256,12 @@ export default function ObligationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {obligations.map((o, idx) => (
+                  {obligations.map((o, idx) => {
+                    // Backward-compatible fallback while API client schema catches up.
+                    const healthScore =
+                      "healthScore" in o && typeof o.healthScore === "number" ? o.healthScore : 100;
+
+                    return (
                     <tr
                       key={o.id}
                       className={cn("hover:bg-slate-50/80 transition-colors group", idx < obligations.length - 1 ? "border-b border-slate-100" : "")}
@@ -284,7 +289,7 @@ export default function ObligationsPage() {
                       <td className="px-4 py-4">
                         <span className="text-sm text-slate-600 font-medium">{format(parseISO(o.dueDate), "MMM d, yyyy")}</span>
                       </td>
-                      <td className="px-4 py-4 hidden xl:table-cell"><HealthScoreBadge score={o.healthScore} size="sm" /></td>
+                      <td className="px-4 py-4 hidden xl:table-cell"><HealthScoreBadge score={healthScore} size="sm" /></td>
                       <td className="px-4 py-4 hidden lg:table-cell">
                         {o.ownerEmail ? (
                           <span className="text-sm text-slate-600 truncate max-w-36 block">{o.ownerEmail}</span>
@@ -322,7 +327,8 @@ export default function ObligationsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
