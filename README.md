@@ -32,6 +32,8 @@ Your business deadline warning system. DueRadar tracks contracts, permits, insur
 
 | Old | New |
 |-----|-----|
+| Legacy name | Canonical name |
+|---|---|
 | RiskRadar | DueRadar |
 | Risk Register | Due Register |
 | Risk Record | Due Record |
@@ -108,7 +110,7 @@ Copy `.env.example` to `.env` and fill in the values. The API server runs on Fly
 ```
 artifacts/
   api-server/        Express 5 + Clerk auth + Drizzle ORM + reminder scheduler
-  renewal-radar/     React 19 + Vite 7 + Tailwind v4 + Clerk + TanStack Query + wouter
+  renewal-radar/     DueRadar frontend (React 19 + Vite 7 + Tailwind v4 + Clerk + TanStack Query + wouter)
 
 lib/
   api-spec/          OpenAPI spec (openapi.yaml) + Orval codegen config
@@ -117,7 +119,7 @@ lib/
   db/                Drizzle ORM schema + migrations
 ```
 
-### Frontend Routes (renewal-radar)
+### Frontend Routes (DueRadar frontend)
 
 | Path | Screen | Description |
 |------|--------|-------------|
