@@ -1,5 +1,3 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
-
 export interface HealthScoreInput {
   status: "active" | "expired" | "completed" | "paused";
   dueDate: string;
@@ -19,9 +17,21 @@ export interface HealthScoreResult {
   factors: HealthFactor[];
 }
 
+function parseIsoDateOnly(dateIso: string): Date {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+}
+
+function differenceInCalendarDaysUtc(left: Date, right: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const leftUtc = Date.UTC(left.getUTCFullYear(), left.getUTCMonth(), left.getUTCDate());
+  const rightUtc = Date.UTC(right.getUTCFullYear(), right.getUTCMonth(), right.getUTCDate());
+  return Math.floor((leftUtc - rightUtc) / msPerDay);
+}
+
 export function computeHealthScore(input: HealthScoreInput): HealthScoreResult {
   const isActive = input.status === "active";
-  const daysUntilDue = differenceInCalendarDays(parseISO(input.dueDate), new Date());
+  const daysUntilDue = differenceInCalendarDaysUtc(parseIsoDateOnly(input.dueDate), new Date());
 
   const factors: HealthFactor[] = [
     { key: "overdue", deduction: 40, triggered: isActive && daysUntilDue < 0 },
