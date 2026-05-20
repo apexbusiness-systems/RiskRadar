@@ -15,9 +15,9 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH || "/";
+const basePath = process.env.NODE_ENV === "production" ? "/" : process.env.BASE_PATH || "/";
 
-if (!process.env.BASE_PATH && process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production" && !process.env.BASE_PATH) {
   console.warn("BASE_PATH not set, defaulting to /");
 }
 
