@@ -46,7 +46,7 @@ Your business deadline warning system. DueRadar tracks contracts, permits, insur
 
 ## Required Environment Variables
 
-Copy `.env.example` to `.env` and fill in the values. The API server runs on Fly.io (`dueradar-api.fly.dev`); the frontend is deployed to Cloudflare Pages at `dueradar.icu` via `wrangler.jsonc`.
+Copy `.env.example` to `.env` and fill in the values. The API server runs on Fly.io (`dueradar-api.fly.dev`); the frontend is deployed to Cloudflare Pages at `dueradar.icu` via `wrangler.jsonc`, with Cloudflare Pages Functions proxying same-origin `/api/*` to `https://dueradar-api.fly.dev`.
 
 ### Required — API server (Fly.io)
 
