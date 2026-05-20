@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -64,7 +65,7 @@ jobs:
     name: Deploy Frontend (Cloudflare Pages)
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
 
     steps:
       - uses: actions/checkout@v4
@@ -86,8 +87,21 @@ jobs:
 
       - name: Build frontend
         env:
+          # NODE_ENV=production ensures Vite base path is always "/" regardless of
+          # BASE_PATH env var. Prevents MSYS2 path corruption on Windows builds.
+          NODE_ENV: production
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
         run: pnpm --filter @workspace/renewal-radar run build
+
+      - name: Verify dist — gate on MSYS path corruption
+        run: |
+          echo "=== dist/public/index.html asset paths ==="
+          grep -E 'src=|href=' artifacts/renewal-radar/dist/public/index.html
+          if grep -q "Program Files" artifacts/renewal-radar/dist/public/index.html; then
+            echo "CRITICAL: MSYS path corruption detected — aborting deploy"
+            exit 1
+          fi
+          echo "✅ Asset paths verified clean"
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
