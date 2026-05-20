@@ -6,7 +6,7 @@ import {
   workspaceMembersTable,
   reminderRulesTable,
 } from "@workspace/db";
-import { eq, and, gte, lte, sql, isNull, notExists, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, sql, isNull, notExists } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/requireAuth";
 import type { Request, Response } from "express";
 import { assertWorkspaceMember } from "../lib/authz";
@@ -342,7 +342,12 @@ router.get("/triage", requireAuth, async (req: Request, res: Response) => {
       const counts = await db
         .select({ obligationId: reminderRulesTable.obligationId, count: sql<number>`count(*)::int` })
         .from(reminderRulesTable)
-        .where(and(eq(reminderRulesTable.isActive, true), inArray(reminderRulesTable.obligationId, oblIds)))
+        .where(
+          and(
+            eq(reminderRulesTable.isActive, true),
+            sql`${reminderRulesTable.obligationId} = ANY(${sql.raw(`ARRAY[${oblIds.join(",")}]::int[]`)})`,
+          ),
+        )
         .groupBy(reminderRulesTable.obligationId);
       for (const row of counts) ruleCounts[row.obligationId] = row.count;
     }

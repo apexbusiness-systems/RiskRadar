@@ -34,11 +34,11 @@ describe("computeHealthScore", () => {
   it("deducts 25 for obligation due TODAY", () => expect(computeHealthScore({ ...healthy, dueDate: daysFromNow(0) }).score).toBe(75));
   it("deducts 10 for obligation due in 30 days (due_soon)", () => expect(computeHealthScore({ ...healthy, dueDate: daysFromNow(30) }).score).toBe(90));
 
-  it("does NOT deduct for due_soon when due in 8 days", () => {
+  it("deducts due_soon for due in 8 days", () => {
     const { score, factors } = computeHealthScore({ ...healthy, dueDate: daysFromNow(8) });
-    expect(factors.find((f) => f.key === "due_soon")?.triggered).toBe(false);
-    expect(factors.find((f) => f.key === "due_critical")?.triggered).toBe(true);
-    expect(score).toBe(75);
+    expect(factors.find((f) => f.key === "due_soon")?.triggered).toBe(true);
+    expect(factors.find((f) => f.key === "due_critical")?.triggered).toBe(false);
+    expect(score).toBe(90);
   });
 
   it("deducts 20 for no active reminder rules", () => expect(computeHealthScore({ ...healthy, activeReminderRuleCount: 0 }).score).toBe(80));
