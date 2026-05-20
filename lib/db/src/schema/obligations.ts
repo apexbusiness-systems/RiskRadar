@@ -6,6 +6,7 @@ import {
   timestamp,
   date,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -49,7 +50,10 @@ export const obligationsTable = pgTable("obligations", {
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+  healthScore: integer("health_score").notNull().default(0),
+}, (table) => [
+  index("idx_obligations_health_score").on(table.healthScore),
+]);
 
 export const insertObligationSchema = createInsertSchema(obligationsTable).omit(
   {
@@ -57,6 +61,7 @@ export const insertObligationSchema = createInsertSchema(obligationsTable).omit(
     completedAt: true,
     createdAt: true,
     updatedAt: true,
+    healthScore: true,
   },
 );
 

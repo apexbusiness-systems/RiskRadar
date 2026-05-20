@@ -1,7 +1,24 @@
 import { Link } from "wouter";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useQuery } from "@tanstack/react-query";
 import { OrbitalRadar } from "@/components/risk-radar/OrbitalRadar";
 import { PageHead, BtnAmber, BtnGhost, BtnResolve, BtnGlass } from "@/components/risk-radar/Chrome";
 import { RR_DATA } from "@/components/risk-radar/data";
+
+
+function useGetTriageObligations(params: { workspaceId?: number }) {
+  return useQuery({
+    queryKey: ["dashboard", "triage", params.workspaceId],
+    queryFn: async () => {
+      if (!params.workspaceId) return [];
+      const res = await fetch(`/api/dashboard/triage?workspaceId=${params.workspaceId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch triage");
+      return res.json() as Promise<Array<{ id: number; title: string; category: string; dueDate: string; healthScore: number }>>;
+    },
+    enabled: !!params.workspaceId,
+    staleTime: 60000,
+  });
+}
 
 /* ── Most Urgent Due Item card ── */
 function HighestRiskNow({ onResolve }: { onResolve: () => void }) {
@@ -324,6 +341,56 @@ function OwnerCoverage() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+
+function TriageQueuePanel() {
+  const { workspaceId } = useWorkspace();
+  const triageQuery = useGetTriageObligations(workspaceId ? { workspaceId } : {});
+  const items = (triageQuery.data ?? []).slice(0, 5);
+
+  const scoreColor = (s: number) => (s >= 70 ? "#00E676" : s >= 40 ? "#F5A623" : "#FF4040");
+
+  return (
+    <div style={{ background: "#0A0E18", border: "1px solid rgba(255,255,255,.07)", borderRadius: 13, boxShadow: "0 4px 20px rgba(0,0,0,.5)", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,.07)" }}>
+        <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#4A5568", textTransform: "uppercase", letterSpacing: "0.16em" }}>Triage Queue · Lowest Health</span>
+        <span style={{ fontSize: "11px", color: "#4A5568" }}>{items.length} items</span>
+      </div>
+      {triageQuery.isLoading ? (
+        <div style={{ padding: "20px 16px", color: "#4A5568", fontSize: "12px", textAlign: "center" }}>Loading...</div>
+      ) : items.length === 0 ? (
+        <div style={{ padding: "20px 16px", color: "#4A5568", fontSize: "12px", textAlign: "center" }}>All obligations healthy ✓</div>
+      ) : (
+        items.map((item, i) => {
+          const color = scoreColor(item.healthScore);
+          return (
+            <Link key={item.id} href={`/obligations/${item.id}`}>
+              <div
+                style={{ display: "grid", gridTemplateColumns: "1fr 48px", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: i < items.length - 1 ? "1px solid rgba(255,255,255,.06)" : "none", cursor: "pointer", transition: "background .15s" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,.03)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#F0F4F8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+                    {item.title}
+                  </div>
+                  <div style={{ fontSize: "10.5px", color: "#4A5568", marginTop: 2 }}>
+                    {item.category} · Due {item.dueDate}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", fontSize: "18px", fontWeight: 800, color, fontVariantNumeric: "tabular-nums" }}>{item.healthScore}</div>
+              </div>
+            </Link>
+          );
+        })
+      )}
     </div>
   );
 }

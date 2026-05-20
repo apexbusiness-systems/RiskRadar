@@ -52,9 +52,13 @@ import {
   UserCheck,
   Users,
   AtSign,
+  Activity,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { HealthScoreBadge } from "@/components/HealthScoreBadge";
+import { HEALTH_FACTOR_CONFIG } from "@/lib/healthFactors";
+import { computeHealthScore } from "@/lib/computeHealthScore";
 
 const CATEGORIES = ["Licensing", "Insurance", "Contracts", "Software", "HR & Compliance", "Real Estate", "Other"];
 
@@ -257,6 +261,16 @@ export default function ObligationDetailPage() {
 
   const obl = oblQuery.data;
   const rules = rulesQuery.data ?? [];
+  const activeRuleCount = rules.filter((r) => r.isActive).length;
+  const healthResult = obl
+    ? computeHealthScore({
+        status: obl.status,
+        dueDate: obl.dueDate,
+        ownerEmail: obl.ownerEmail ?? null,
+        backupOwnerEmail: obl.backupOwnerEmail ?? null,
+        activeReminderRuleCount: activeRuleCount,
+      })
+    : null;
 
   const form = useForm<OblFormValues>({
     resolver: zodResolver(oblFormSchema),
@@ -572,6 +586,27 @@ export default function ObligationDetailPage() {
                 </FormItem>
               )} />
             </FormSection>
+
+
+            {obl && obl.status === "active" && healthResult && (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center gap-3">
+                  <div className="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center"><Activity className="w-3.5 h-3.5 text-slate-500" /></div>
+                  <div className="flex-1"><h2 className="text-sm font-semibold text-slate-700">Obligation Health</h2><p className="text-xs text-slate-400 mt-0.5">What's affecting this obligation's health score</p></div>
+                  <HealthScoreBadge score={healthResult.score} size="md" />
+                </div>
+                <div className="p-5 space-y-2">
+                  {healthResult.factors.map((factor) => {
+                    const config = HEALTH_FACTOR_CONFIG[factor.key];
+                    if (!config) return null;
+                    const Icon = config.Icon;
+                    return (<div key={factor.key} className={cn("flex items-center gap-3 p-3 rounded-xl border text-sm transition-colors", factor.triggered ? "bg-red-50 border-red-100 text-red-700" : "bg-emerald-50 border-emerald-100 text-emerald-700")}>
+                      <Icon className="w-4 h-4 flex-shrink-0" /><span className="flex-1 font-medium">{config.label}</span><span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", factor.triggered ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>{factor.triggered ? `-${factor.deduction}` : "✓"}</span>
+                    </div>);
+                  })}
+                </div>
+              </div>
+            )}
 
             <Button
               type="submit"

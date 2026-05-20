@@ -6,8 +6,9 @@ import {
   auditLogsTable,
   workspaceMembersTable,
 } from "@workspace/db";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { computeHealthScore } from "./healthScore";
 
 async function sendEmail(to: string, subject: string, body: string): Promise<boolean> {
   const smtpHost = process.env.SMTP_HOST;
@@ -227,6 +228,53 @@ Please log in to DueRadar to take action.
         .set({ lastTriggeredAt: new Date() })
         .where(eq(reminderRulesTable.id, rule.id));
     }
+
+
+    // ── 3. Refresh health scores for all active obligations ──────────────────
+    const activeWithRuleCounts = await db
+      .select({
+        id: obligationsTable.id,
+        status: obligationsTable.status,
+        dueDate: obligationsTable.dueDate,
+        ownerEmail: obligationsTable.ownerEmail,
+        backupOwnerEmail: obligationsTable.backupOwnerEmail,
+        activeRuleCount: sql<number>`count(
+          case when ${reminderRulesTable.isActive} = true then 1 end
+        )::int`,
+      })
+      .from(obligationsTable)
+      .leftJoin(
+        reminderRulesTable,
+        eq(reminderRulesTable.obligationId, obligationsTable.id),
+      )
+      .where(eq(obligationsTable.status, "active"))
+      .groupBy(
+        obligationsTable.id,
+        obligationsTable.status,
+        obligationsTable.dueDate,
+        obligationsTable.ownerEmail,
+        obligationsTable.backupOwnerEmail,
+      );
+
+    for (const row of activeWithRuleCounts) {
+      const { score } = computeHealthScore({
+        status: row.status,
+        dueDate: row.dueDate,
+        ownerEmail: row.ownerEmail,
+        backupOwnerEmail: row.backupOwnerEmail,
+        activeReminderRuleCount: row.activeRuleCount ?? 0,
+      });
+
+      await db
+        .update(obligationsTable)
+        .set({ healthScore: score })
+        .where(eq(obligationsTable.id, row.id));
+    }
+
+    logger.info(
+      { runId, count: activeWithRuleCounts.length },
+      "Health scores refreshed",
+    );
 
     logger.info({ runId }, "Reminder processor complete");
   } catch (err) {
