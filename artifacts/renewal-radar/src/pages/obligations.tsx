@@ -18,6 +18,7 @@ import {
   useCompleteObligation,
 } from "@workspace/api-client-react";
 import { StatusBadge, DueDateBadge } from "@/components/ObligationBadge";
+import { HealthScoreBadge } from "@/components/HealthScoreBadge";
 import { Plus, Search, Download, Trash2, CheckCircle2, ChevronRight, ClipboardList, Upload } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
@@ -249,6 +250,7 @@ export default function ObligationsPage() {
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Category</th>
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Due Date</th>
+                    <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden xl:table-cell">Health</th>
                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Owner</th>
                     <th className="text-right px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                   </tr>
@@ -282,6 +284,7 @@ export default function ObligationsPage() {
                       <td className="px-4 py-4">
                         <span className="text-sm text-slate-600 font-medium">{format(parseISO(o.dueDate), "MMM d, yyyy")}</span>
                       </td>
+                      <td className="px-4 py-4 hidden xl:table-cell"><HealthScoreBadge score={o.healthScore} size="sm" /></td>
                       <td className="px-4 py-4 hidden lg:table-cell">
                         {o.ownerEmail ? (
                           <span className="text-sm text-slate-600 truncate max-w-36 block">{o.ownerEmail}</span>

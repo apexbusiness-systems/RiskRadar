@@ -53,10 +53,36 @@ import {
   Users,
   AtSign,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { HealthScoreBadge } from "@/components/HealthScoreBadge";
+import { HEALTH_FACTOR_CONFIG } from "@/lib/healthFactors";
 
 const CATEGORIES = ["Licensing", "Insurance", "Contracts", "Software", "HR & Compliance", "Real Estate", "Other"];
+
+type HealthFactorKey = keyof typeof HEALTH_FACTOR_CONFIG;
+
+function computeHealthScore(input: {
+  status: "active" | "expired" | "completed" | "paused";
+  dueDate: string;
+  ownerEmail: string | null;
+  backupOwnerEmail: string | null;
+  activeReminderRuleCount: number;
+}) {
+  const daysUntilDue = differenceInCalendarDays(parseISO(input.dueDate), new Date());
+  const isActive = input.status === "active";
+  const factors = [
+    { key: "overdue", deduction: 40, triggered: isActive && daysUntilDue < 0 },
+    { key: "due_critical", deduction: 25, triggered: isActive && daysUntilDue >= 0 && daysUntilDue <= 7 },
+    { key: "due_soon", deduction: 10, triggered: isActive && daysUntilDue >= 8 && daysUntilDue <= 30 },
+    { key: "no_reminder", deduction: 20, triggered: isActive && input.activeReminderRuleCount === 0 },
+    { key: "no_owner", deduction: 10, triggered: isActive && !input.ownerEmail },
+    { key: "no_backup", deduction: 5, triggered: isActive && !input.backupOwnerEmail },
+  ] as const;
+  const score = !isActive ? 100 : Math.max(0, 100 - factors.reduce((t, f) => t + (f.triggered ? f.deduction : 0), 0));
+  return { score, factors };
+}
+
 
 const oblFormSchema = z.object({
   title: z.string().min(1),
@@ -257,6 +283,13 @@ export default function ObligationDetailPage() {
 
   const obl = oblQuery.data;
   const rules = rulesQuery.data ?? [];
+  const health = computeHealthScore({
+    status: (obl?.status ?? "active") as "active" | "expired" | "completed" | "paused",
+    dueDate: obl?.dueDate ?? new Date().toISOString().split("T")[0],
+    ownerEmail: obl?.ownerEmail ?? null,
+    backupOwnerEmail: obl?.backupOwnerEmail ?? null,
+    activeReminderRuleCount: rules.filter((rule) => rule.isActive).length,
+  });
 
   const form = useForm<OblFormValues>({
     resolver: zodResolver(oblFormSchema),
@@ -444,6 +477,32 @@ export default function ObligationDetailPage() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            {obl.status === "active" && (
+            <FormSection title="Health Breakdown" description="Deterministic risk factors for this obligation">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-600">Current health score</p>
+                <HealthScoreBadge score={health.score} size="md" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {health.factors.map((factor) => {
+                  const config = HEALTH_FACTOR_CONFIG[factor.key as HealthFactorKey];
+                  const Icon = config.Icon;
+                  return (
+                    <div key={factor.key} className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-slate-500" />
+                        <span className="text-sm text-slate-700">{config.label}</span>
+                      </div>
+                      <span className={cn("text-xs font-semibold", factor.triggered ? "text-red-600" : "text-emerald-600")}>
+                        {factor.triggered ? `-${factor.deduction}` : "OK"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </FormSection>
+          )}
+
             {/* Core Details */}
             <FormSection title="Core Details">
               <FormField control={form.control} name="title" render={({ field }) => (
