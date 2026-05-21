@@ -28,3 +28,6 @@ artifacts/renewal-radar/.replit-artifact
 .idea
 coverage
 **/*.md
+
+# Root icon assets are not required for API image build
+public/assets
