@@ -10,7 +10,6 @@ import {
   Settings,
   LogOut,
   Menu,
-  RadarIcon,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -75,9 +74,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       >
         {/* Logo area */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30">
-            <RadarIcon className="w-4 h-4 text-slate-900" />
-          </div>
+          <img
+            src="/assets/app-icon.png"
+            alt="DueRadar app icon"
+            className="w-8 h-8 rounded-lg object-cover flex-shrink-0 shadow-lg"
+          />
           <div className="min-w-0">
             <p className="font-bold text-sm text-white leading-tight">DueRadar</p>
             <p className="text-xs text-white/40 leading-tight mt-0.5 truncate">Deadline Tracker</p>
@@ -164,9 +165,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-amber-500 rounded flex items-center justify-center">
-              <RadarIcon className="w-3 h-3 text-slate-900" />
-            </div>
+            <img
+              src="/assets/app-icon.png"
+              alt="DueRadar app icon"
+              className="w-6 h-6 rounded object-cover"
+            />
             <span className="font-bold text-sm text-slate-900">DueRadar</span>
           </div>
         </header>
