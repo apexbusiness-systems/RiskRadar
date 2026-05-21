@@ -1,0 +1,17 @@
+{
+  "name": "DueRadar",
+  "short_name": "DueRadar",
+  "description": "DueRadar — Your business deadline warning system.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05070B",
+  "theme_color": "#05070B",
+  "icons": [
+    {
+      "src": "/assets/app-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
